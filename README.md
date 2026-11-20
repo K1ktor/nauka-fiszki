@@ -17,7 +17,9 @@ Desktopowa aplikacja do samodzielnej nauki z fiszkami. Wszystkie dane zostają n
 - **Zaznaczanie wielu fiszek** – „Zaznacz wszystkie” (w obrębie bieżącego filtra), usuwanie i **usypianie** zaznaczonych.
   Uśpione fiszki nie pojawiają się w żadnej sesji nauki; można je obudzić (filtr „Uśpione”).
 - **Nauka bez oceny** – w zakładce Nauka: wybór tagów (domyślnie „Wszystko”), przeglądanie fiszek bez gwiazdek,
-  bez wpływu na terminy powtórek, serię i statystyki.
+  bez wpływu na terminy powtórek, serię i statystyki. Opcjonalnie tylko fiszki ze **średnią gwiazdek poniżej progu**
+  (np. poniżej 2★), żeby pomijać to, co już umiesz; fiszki jeszcze nieocenione można włączyć lub wyłączyć.
+- **Średnia gwiazdek każdej fiszki** – liczona z całej historii ocen (widoczna na liście Fiszki).
 - **Średnia ocen** na ekranie głównym: z dziś i z ostatnich 7 dni.
 - **Motyw jasny / ciemny / systemowy** – przełącznik na dole paska bocznego, wybór jest zapamiętywany.
 

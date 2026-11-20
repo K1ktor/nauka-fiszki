@@ -17,6 +17,26 @@ export interface Card extends SchedulingState {
   lastReviewed: DayString | null;
   /** Uśpiona fiszka nie pojawia się w sesjach nauki. */
   suspended: boolean;
+  /** Średnia gwiazdek ze wszystkich ocen tej fiszki (null = jeszcze nieoceniona). */
+  avgStars: number | null;
+  /** Ile razy fiszka została oceniona. */
+  ratings: number;
+}
+
+/** Filtr nauki bez oceny: tylko fiszki ze średnią gwiazdek poniżej progu. */
+export interface StarFilter {
+  /** Próg (ściśle mniej niż); null = bez filtra. */
+  below: number | null;
+  /** Czy brać też fiszki, które nie mają jeszcze żadnej oceny. */
+  includeUnrated: boolean;
+}
+
+export const NO_STAR_FILTER: StarFilter = { below: null, includeUnrated: true };
+
+export function matchesStarFilter(card: Card, f: StarFilter): boolean {
+  if (f.below === null) return true;
+  if (card.avgStars === null) return f.includeUnrated;
+  return card.avgStars < f.below;
 }
 
 export interface TagInfo {
@@ -74,6 +94,8 @@ interface CardRow {
   created_at: string;
   suspended: number;
   tags: string | null;
+  avg_stars: number | null;
+  ratings: number;
 }
 
 export class Store {
@@ -91,8 +113,12 @@ export class Store {
   async listCards(): Promise<Card[]> {
     const rows = await this.db.select<CardRow>(
       `SELECT c.*, (SELECT group_concat(t.name, '|') FROM card_tags ct JOIN tags t ON t.id = ct.tag_id
-                    WHERE ct.card_id = c.id) AS tags
-       FROM cards c ORDER BY c.id DESC`,
+                    WHERE ct.card_id = c.id) AS tags,
+              r.avg_stars AS avg_stars, COALESCE(r.n, 0) AS ratings
+       FROM cards c
+       LEFT JOIN (SELECT card_id, AVG(stars) AS avg_stars, COUNT(*) AS n FROM reviews GROUP BY card_id) r
+         ON r.card_id = c.id
+       ORDER BY c.id DESC`,
     );
     return rows.map(rowToCard);
   }
@@ -132,10 +158,12 @@ export class Store {
     return { added, duplicates };
   }
 
-  /** Wszystkie aktywne (nieuśpione) fiszki z wybranych tagów – do nauki bez oceny. */
-  async practiceCards(tags: string[] = []): Promise<Card[]> {
+  /** Aktywne (nieuśpione) fiszki z wybranych tagów – do nauki bez oceny, opcjonalnie tylko te ze słabą średnią. */
+  async practiceCards(tags: string[] = [], stars: StarFilter = NO_STAR_FILTER): Promise<Card[]> {
     const all = await this.listCards();
-    return all.filter((c) => !c.suspended && (tags.length === 0 || c.tags.some((t) => tags.includes(t))));
+    return all.filter(
+      (c) => !c.suspended && (tags.length === 0 || c.tags.some((t) => tags.includes(t))) && matchesStarFilter(c, stars),
+    );
   }
 
   async setSuspended(ids: number[], suspended: boolean): Promise<void> {
@@ -255,5 +283,7 @@ function rowToCard(r: CardRow): Card {
     createdAt: r.created_at,
     suspended: Number(r.suspended ?? 0) === 1,
     tags: r.tags ? r.tags.split("|").sort() : [],
+    avgStars: r.avg_stars == null ? null : Number(r.avg_stars),
+    ratings: Number(r.ratings ?? 0),
   };
 }

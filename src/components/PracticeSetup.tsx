@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Card, Store } from "../lib/db";
+import { Card, StarFilter, Store, matchesStarFilter } from "../lib/db";
+
+const THRESHOLDS = [1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+const fmt = (n: number) => n.toLocaleString("pl-PL", { maximumFractionDigits: 1 });
 
 interface Props {
   store: Store;
-  onStart: (tags: string[], shuffle: boolean) => void;
+  onStart: (tags: string[], shuffle: boolean, stars: StarFilter) => void;
   onBack: () => void;
 }
 
@@ -11,6 +14,10 @@ export default function PracticeSetup({ store, onStart, onBack }: Props) {
   const [cards, setCards] = useState<Card[]>([]);
   const [chosen, setChosen] = useState<string[]>([]);
   const [shuffle, setShuffle] = useState(true);
+  const [useStars, setUseStars] = useState(false);
+  const [below, setBelow] = useState(2);
+  const [includeUnrated, setIncludeUnrated] = useState(true);
+  const stars: StarFilter = { below: useStars ? below : null, includeUnrated };
 
   useEffect(() => {
     store.practiceCards().then(setCards);
@@ -24,7 +31,10 @@ export default function PracticeSetup({ store, onStart, onBack }: Props) {
   }, [cards]);
 
   const all = chosen.length === 0;
-  const count = all ? cards.length : cards.filter((c) => c.tags.some((t) => chosen.includes(t))).length;
+  const inTags = all ? cards : cards.filter((c) => c.tags.some((t) => chosen.includes(t)));
+  const count = inTags.filter((c) => matchesStarFilter(c, stars)).length;
+  const unrated = inTags.filter((c) => c.avgStars === null).length;
+  const skipped = inTags.length - count;
 
   const toggleTag = (t: string) =>
     setChosen((s) => (s.includes(t) ? s.filter((x) => x !== t) : [...s, t]));
@@ -51,8 +61,34 @@ export default function PracticeSetup({ store, onStart, onBack }: Props) {
           {tagCounts.length === 0 && <p className="muted">Twoje fiszki nie mają jeszcze tagów.</p>}
         </div>
       </section>
+      <section className="panel">
+        <h2>Tylko to, czego jeszcze nie umiesz</h2>
+        <div className="star-filter">
+          <label className="check normal">
+            <input type="checkbox" checked={useStars} onChange={(e) => setUseStars(e.target.checked)} />
+            tylko fiszki ze średnią poniżej
+          </label>
+          <select value={below} disabled={!useStars} onChange={(e) => setBelow(Number(e.target.value))} aria-label="Próg średniej">
+            {THRESHOLDS.map((t) => (
+              <option key={t} value={t}>{fmt(t)} ★</option>
+            ))}
+          </select>
+        </div>
+        {useStars && (
+          <>
+            <label className="check normal">
+              <input type="checkbox" checked={includeUnrated} onChange={(e) => setIncludeUnrated(e.target.checked)} />
+              także fiszki jeszcze nieocenione <span className="muted">({unrated})</span>
+            </label>
+            <p className="muted small">
+              Średnia liczona ze wszystkich Twoich ocen w nauce z oceną.
+              {skipped > 0 ? ` Pominięto ${skipped} – te już umiesz.` : ""}
+            </p>
+          </>
+        )}
+      </section>
       <div className="start-row">
-        <button className="primary big" disabled={count === 0} onClick={() => onStart(chosen, shuffle)}>
+        <button className="primary big" disabled={count === 0} onClick={() => onStart(chosen, shuffle, stars)}>
           Rozpocznij ({count})
         </button>
         <label className="check normal">
