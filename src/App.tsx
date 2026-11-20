@@ -134,6 +134,8 @@ export default function App() {
       </aside>
       <main className="content">
         <Updater />
+        {/* Klucz = zakładka: przy każdej zmianie ekranu nowa zawartość łagodnie się pojawia. */}
+        <div key={view} className="view-anim">
         {view === "dashboard" && <Dashboard store={store} version={version} onStart={startStudy} onImport={() => { setAddMode("csv"); setView("import"); }} onCreate={() => { setAddMode("creator"); setView("import"); }} />}
         {view === "study" && (
           <Study store={store} tags={studyTags} onChange={bump} onDone={() => setView("dashboard")} />
@@ -179,6 +181,7 @@ export default function App() {
             {addMode === "csv" && <ImportView store={store} onImported={() => { bump(); setView("cards"); }} />}
           </div>
         )}
+        </div>
       </main>
     </div>
   );
