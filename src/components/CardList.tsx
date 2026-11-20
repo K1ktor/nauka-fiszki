@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, Store, TagInfo } from "../lib/db";
 import { diffDays, formatInterval, toDay } from "../lib/dates";
-import { parseTags } from "../lib/csv";
+import { parseTags, toCsv } from "../lib/csv";
+import { saveTextFile } from "../lib/exportFile";
 
 interface Props {
   store: Store;
@@ -27,6 +28,7 @@ export default function CardList({ store, version, onChange }: Props) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [exported, setExported] = useState<string | null>(null);
   const today = toDay();
 
   useEffect(() => {
@@ -102,14 +104,37 @@ export default function CardList({ store, version, onChange }: Props) {
 
   const suspendedCount = cards.filter((c) => c.suspended).length;
 
+  // Eksport: zaznaczone fiszki, a bez zaznaczenia – wszystkie widoczne w bieżącym filtrze.
+  const toExport = visibleSelected.length > 0 ? visibleSelected : filtered;
+  const exportCsv = async () => {
+    try {
+      const name = `fiszki-${tag || "wszystkie"}-${today}.csv`;
+      const where = await saveTextFile(name, toCsv([...toExport].sort((a, b) => a.id - b.id)));
+      if (where) setExported(`Wyeksportowano ${toExport.length} fiszek do ${where}`);
+    } catch (e) {
+      setExported(`Eksport nie powiódł się: ${e}`);
+    }
+  };
+
   return (
     <div>
       <div className="panel-head">
         <h1>Fiszki</h1>
-        <button className="primary" onClick={() => setDraft({ id: null, question: "", answer: "", tags: tag })}>
-          + Nowa fiszka
-        </button>
+        <div className="head-actions">
+          <button onClick={exportCsv} disabled={toExport.length === 0} title="Zapisz do pliku CSV (zgodnego z importem)">
+            ⤓ Eksportuj CSV ({toExport.length})
+          </button>
+          <button className="primary" onClick={() => setDraft({ id: null, question: "", answer: "", tags: tag })}>
+            + Nowa fiszka
+          </button>
+        </div>
       </div>
+      {exported && (
+        <div className="export-note">
+          <span>{exported}</span>
+          <button className="link" onClick={() => setExported(null)}>zamknij</button>
+        </div>
+      )}
       <div className="toolbar">
         <input placeholder="Szukaj w pytaniach i odpowiedziach…" value={query} onChange={(e) => setQuery(e.target.value)} />
         <select value={tag} onChange={(e) => setTag(e.target.value)}>

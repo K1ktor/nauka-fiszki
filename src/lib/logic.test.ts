@@ -252,3 +252,17 @@ describe("wpisywanie odpowiedzi", () => {
     expect(compareAnswer("   ", "Warszawa")).toBe("empty");
   });
 });
+
+describe("eksport CSV", () => {
+  it("eksport → import daje te same fiszki", async () => {
+    const { toCsv } = await import("./csv");
+    const cards = [
+      { question: 'Co to "ATP"?', answer: "Nośnik energii, w komórce", tags: ["biologia", "komórka"] },
+      { question: "Wiersz\ndrugi", answer: "a;b", tags: [] },
+      { question: "2+2", answer: "4", tags: ["matma"] },
+    ];
+    const csv = toCsv(cards);
+    expect(csv.startsWith("﻿pytanie,odpowiedź,tagi\r\n")).toBe(true);
+    expect(parseCsv(csv).cards).toEqual(cards);
+  });
+});

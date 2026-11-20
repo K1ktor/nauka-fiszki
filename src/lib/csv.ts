@@ -118,3 +118,17 @@ function splitRows(text: string, delim: string): { fields: string[]; line: numbe
   }
   return rows;
 }
+
+function csvField(s: string): string {
+  return /[",\r\n;\t]/.test(s) || s !== s.trim() ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/**
+ * Eksport do CSV zgodnego z importem: nagłówek „pytanie,odpowiedź,tagi”, tagi rozdzielone „|”.
+ * Z BOM, żeby Excel poprawnie pokazał polskie znaki.
+ */
+export function toCsv(cards: { question: string; answer: string; tags: string[] }[]): string {
+  const lines = ["pytanie,odpowiedź,tagi"];
+  for (const c of cards) lines.push([c.question, c.answer, c.tags.join("|")].map(csvField).join(","));
+  return "﻿" + lines.join("\r\n") + "\r\n";
+}

@@ -10,6 +10,9 @@ Desktopowa aplikacja do samodzielnej nauki z fiszkami. Wszystkie dane zostają n
 - **Samoocena 1–5 gwiazdek** po odsłonięciu odpowiedzi (klawisze: `Spacja` – pokaż odpowiedź, `1`–`5` – ocena).
   Przy każdej gwiazdce widać, kiedy fiszka wróci.
 - **Algorytm powtórek FSRS** wyznacza dzień kolejnego pokazu, z ustawianą **docelową skutecznością** (domyślnie 90%) – szczegóły niżej.
+- **Eksport fiszek do CSV** – w zakładce Fiszki: zaznaczone fiszki albo wszystkie z bieżącego filtra, w formacie
+  zgodnym z importem (`pytanie,odpowiedź,tagi`, tagi rozdzielone `|`).
+- **Aktualizacje bez instalatora** – pasek postępu pobierania w aplikacji, cicha instalacja w tle i automatyczny restart.
 - **Limit nowych fiszek dziennie** – w zakładce Nauka suwak od 0 do wszystkich i pole na własną liczbę.
   Powtórki już poznanych fiszek nie mają limitu.
 - **Wpisywanie odpowiedzi** (opcjonalne, przełącznik w zakładce Nauka) – przed odsłonięciem wpisujesz odpowiedź,

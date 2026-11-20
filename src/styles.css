@@ -295,3 +295,11 @@ input[type="checkbox"] { width: 1.1rem; height: 1.1rem; padding: 0; accent-color
 .typed.wrong { background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .typed .side-label { margin-bottom: 0.3rem; }
 .typed-text { font-size: 1.15rem; white-space: pre-wrap; }
+.head-actions { display: flex; gap: 0.6rem; }
+.export-note { display: flex; justify-content: space-between; gap: 1rem; align-items: center; background: color-mix(in srgb, var(--ok) 12%, transparent); padding: 0.6rem 0.9rem; border-radius: 0.6667rem; margin-bottom: 0.8rem; font-size: 0.9rem; word-break: break-all; }
+.update-progress { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
+.update-progress-text { display: flex; justify-content: space-between; gap: 1rem; font-weight: 600; }
+.update-track { height: 0.5rem; background: var(--surface); border-radius: 66rem; overflow: hidden; }
+.update-fill { height: 100%; background: var(--accent); border-radius: 66rem; transition: width 0.2s; }
+.update-fill.indeterminate { animation: upd-slide 1.2s ease-in-out infinite; }
+@keyframes upd-slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
