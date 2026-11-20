@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Card, Store } from "../lib/db";
+import { Card, DEFAULT_SETTINGS, Settings, Store } from "../lib/db";
 import { formatInterval, toDay } from "../lib/dates";
 import { previewIntervals, STAR_LABELS, Stars } from "../lib/scheduler";
+import TypedAnswer from "./TypedAnswer";
 
 interface Props {
   store: Store;
@@ -17,9 +18,12 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
   const [hover, setHover] = useState<Stars | null>(null);
   const [ratings, setRatings] = useState<Stars[]>([]);
   const [busy, setBusy] = useState(false);
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [typed, setTyped] = useState("");
   const today = toDay();
 
   useEffect(() => {
+    store.getSettings().then(setSettings);
     store.dueCards(today, tags).then((c) => setQueue(c));
   }, [store, today, tags]);
 
@@ -32,6 +36,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
       await store.rateCard(card, stars, today);
       setRatings((r) => [...r, stars]);
       setRevealed(false);
+      setTyped("");
       setHover(null);
       setIndex((i) => i + 1);
       setBusy(false);
@@ -84,7 +89,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
     );
   }
 
-  const preview = previewIntervals(card, today);
+  const preview = previewIntervals(card, today, settings.retention);
   const shown = hover ?? 0;
 
   return (
@@ -101,9 +106,26 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
       <div className="flashcard">
         <div className="side-label">Pytanie</div>
         <div className="q">{card.question}</div>
+        {settings.typeAnswer && !revealed && (
+          <input
+            key={card.id}
+            className="type-answer"
+            autoFocus
+            placeholder="Wpisz odpowiedź i naciśnij Enter"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                setRevealed(true);
+              }
+            }}
+          />
+        )}
         {revealed && (
           <>
             <hr />
+            {settings.typeAnswer && <TypedAnswer typed={typed} answer={card.answer} />}
             <div className="side-label">Odpowiedź</div>
             <div className="a">{card.answer}</div>
           </>
@@ -112,7 +134,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
 
       {!revealed ? (
         <button className="primary big reveal" onClick={() => setRevealed(true)}>
-          Pokaż odpowiedź <kbd>Spacja</kbd>
+          Pokaż odpowiedź <kbd>{settings.typeAnswer ? "Enter" : "Spacja"}</kbd>
         </button>
       ) : (
         <div className="rating">

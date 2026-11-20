@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card, StarFilter, Store } from "../lib/db";
+import TypedAnswer from "./TypedAnswer";
 
 interface Props {
   store: Store;
@@ -24,6 +25,12 @@ export default function Practice({ store, tags, shuffle, stars, onBack }: Props)
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [round, setRound] = useState(0);
+  const [typeAnswer, setTypeAnswer] = useState(false);
+  const [typed, setTyped] = useState("");
+
+  useEffect(() => {
+    store.getSettings().then((s) => setTypeAnswer(s.typeAnswer));
+  }, [store]);
 
   useEffect(() => {
     store.practiceCards(tags, stars).then((c) => {
@@ -36,16 +43,19 @@ export default function Practice({ store, tags, shuffle, stars, onBack }: Props)
   const card = queue?.[index];
   const next = () => {
     setRevealed(false);
+    setTyped("");
     setIndex((i) => i + 1);
   };
   const prev = () => {
     setRevealed(false);
+    setTyped("");
     setIndex((i) => Math.max(0, i - 1));
   };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!card) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
         if (!revealed) setRevealed(true);
@@ -92,9 +102,26 @@ export default function Practice({ store, tags, shuffle, stars, onBack }: Props)
       <div className="flashcard">
         <div className="side-label">Pytanie</div>
         <div className="q">{card.question}</div>
+        {typeAnswer && !revealed && (
+          <input
+            key={card.id}
+            className="type-answer"
+            autoFocus
+            placeholder="Wpisz odpowiedź i naciśnij Enter"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                setRevealed(true);
+              }
+            }}
+          />
+        )}
         {revealed && (
           <>
             <hr />
+            {typeAnswer && <TypedAnswer typed={typed} answer={card.answer} />}
             <div className="side-label">Odpowiedź</div>
             <div className="a">{card.answer}</div>
           </>

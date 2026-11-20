@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, Store, TagInfo } from "../lib/db";
+import { buildQueue, Card, isNew, Store, TagInfo } from "../lib/db";
 import { addDays, parseDay, toDay } from "../lib/dates";
 import { computeStreak, StreakInfo } from "../lib/streak";
 
@@ -18,6 +18,7 @@ interface Data {
   forecast: Record<string, number>;
   avgToday: { avg: number | null; count: number };
   avgWeek: { avg: number | null; count: number };
+  remainingNew: number | null;
 }
 
 const WEEKS = 18;
@@ -30,7 +31,7 @@ export default function Dashboard({ store, version, onStart, onImport }: Props) 
 
   useEffect(() => {
     (async () => {
-      const [cards, tags, days, perDay, forecast, avgToday, avgWeek] = await Promise.all([
+      const [cards, tags, days, perDay, forecast, avgToday, avgWeek, remainingNew] = await Promise.all([
         store.listCards(),
         store.listTags(today),
         store.studyDays(),
@@ -38,18 +39,19 @@ export default function Dashboard({ store, version, onStart, onImport }: Props) 
         store.forecast(today),
         store.averageStars(today, today),
         store.averageStars(addDays(today, -6), today),
+        store.remainingNew(today),
       ]);
-      setData({ cards, tags, streak: computeStreak(days, today), perDay, forecast, avgToday, avgWeek });
+      setData({ cards, tags, streak: computeStreak(days, today), perDay, forecast, avgToday, avgWeek, remainingNew });
     })();
   }, [store, version, today]);
 
   if (!data) return null;
-  const { cards, tags, streak, perDay, forecast, avgToday, avgWeek } = data;
+  const { cards, tags, streak, perDay, forecast, avgToday, avgWeek, remainingNew } = data;
 
-  const dueAll = cards.filter((c) => !c.suspended && c.dueDate <= today);
+  const dueAll = buildQueue(cards, today, [], remainingNew);
   const fmtAvg = (a: { avg: number | null }) => (a.avg === null ? "–" : a.avg.toFixed(1).replace(".", ","));
-  const due = selected.length ? dueAll.filter((c) => c.tags.some((t) => selected.includes(t))) : dueAll;
-  const newCount = due.filter((c) => c.lastReviewed === null).length;
+  const due = selected.length ? buildQueue(cards, today, selected, remainingNew) : dueAll;
+  const newCount = due.filter(isNew).length;
   const reviewedToday = perDay[today] ?? 0;
   const toggle = (t: string) => setSelected((s) => (s.includes(t) ? s.filter((x) => x !== t) : [...s, t]));
 
@@ -107,7 +109,7 @@ export default function Dashboard({ store, version, onStart, onImport }: Props) 
           <div className="chips">
             {tags.map((t) => (
               <button key={t.name} className={selected.includes(t.name) ? "chip on" : "chip"} onClick={() => toggle(t.name)}>
-                #{t.name} <span className="chip-count">{t.due}/{t.count}</span>
+                #{t.name} <span className="chip-count">{buildQueue(cards, today, [t.name], remainingNew).length}/{t.count}</span>
               </button>
             ))}
           </div>

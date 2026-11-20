@@ -1,49 +1,74 @@
 import { describe, expect, it } from "vitest";
 import { parseCsv } from "./csv";
 import { addDays, diffDays } from "./dates";
-import { initialState, review, Stars } from "./scheduler";
+import { initialState, nextInterval, replay, retrievability, review, SchedulingState, Stars } from "./scheduler";
 import { computeStreak } from "./streak";
 import { Store } from "./db";
 import { sqlJsDriver } from "./drivers";
 
 const T = "2026-11-17";
 
-describe("algorytm powtórek", () => {
-  it("1-2 gwiazdki: powtórka jutro i reset", () => {
-    const s = { repetitions: 4, interval: 20, ease: 2.5, dueDate: T };
+describe("algorytm powtórek (FSRS)", () => {
+  const known = (stability: number, last = addDays(T, -10)): SchedulingState => ({
+    stability, difficulty: 5, repetitions: 3, lapses: 0, interval: 10, dueDate: T, lastReviewed: last,
+  });
+
+  it("nowa fiszka: 1-2★ jutro, 3★ jutro, 4★ za 3 dni, 5★ za 16 dni", () => {
+    const iv = ([1, 2, 3, 4, 5] as Stars[]).map((st) => review(initialState(T), st, T).interval);
+    expect(iv).toEqual([1, 1, 1, 3, 16]);
+  });
+
+  it("1-2★ na znanej fiszce: powrót jutro, reset serii, spadek stabilności", () => {
     for (const st of [1, 2] as Stars[]) {
-      const n = review(s, st, T);
+      const n = review(known(20), st, T);
       expect(n.interval).toBe(1);
-      expect(n.repetitions).toBe(0);
       expect(n.dueDate).toBe(addDays(T, 1));
-      expect(n.ease).toBeLessThan(2.5);
+      expect(n.repetitions).toBe(0);
+      expect(n.lapses).toBe(1);
+      expect(n.stability!).toBeLessThan(20);
+      expect(n.difficulty!).toBeGreaterThan(5);
     }
   });
 
   it("więcej gwiazdek = dłuższy odstęp", () => {
-    const s = { repetitions: 3, interval: 10, ease: 2.5, dueDate: T };
-    const iv = ([1, 2, 3, 4, 5] as Stars[]).map((st) => review(s, st, T).interval);
+    const iv = ([1, 2, 3, 4, 5] as Stars[]).map((st) => review(known(10), st, T).interval);
     for (let i = 1; i < iv.length; i++) expect(iv[i]).toBeGreaterThanOrEqual(iv[i - 1]);
-    expect(iv[4]).toBeGreaterThan(iv[2]);
+    expect(iv[4]).toBeGreaterThan(iv[3]);
+    expect(iv[3]).toBeGreaterThan(iv[2]);
   });
 
-  it("seria piątek rośnie wykładniczo", () => {
+  it("przy 90% odstęp = stabilność; wyższa skuteczność = krótszy odstęp", () => {
+    expect(nextInterval(30, 0.9)).toBe(30);
+    expect(retrievability(30, 30)).toBeCloseTo(0.9);
+    expect(nextInterval(30, 0.95)).toBeLessThan(30);
+    expect(nextInterval(30, 0.8)).toBeGreaterThan(30);
+    expect(nextInterval(30, 2)).toBe(nextInterval(30, 0.99));
+    const at = (r: number) => review(known(10), 4, T, r).interval;
+    expect(at(0.95)).toBeLessThan(at(0.9));
+    expect(at(0.8)).toBeGreaterThan(at(0.9));
+  });
+
+  it("seria czwórek rośnie szybko", () => {
     let s = initialState(T);
     const ivs: number[] = [];
-    let day = T;
     for (let i = 0; i < 5; i++) {
-      s = review(s, 5, day);
+      s = review(s, 4, s.dueDate);
       ivs.push(s.interval);
-      day = s.dueDate;
     }
-    expect(ivs).toEqual([3, 6, 17, 49, 147]);
-    expect(diffDays(T, s.dueDate)).toBe(3 + 6 + 17 + 49 + 147);
+    for (let i = 1; i < ivs.length; i++) expect(ivs[i]).toBeGreaterThan(ivs[i - 1] * 2);
+    expect(ivs[4]).toBeGreaterThan(100);
   });
 
-  it("łatwość nie spada poniżej 1.3", () => {
+  it("odtworzenie historii = kolejne oceny", () => {
+    const hist = [
+      { day: T, stars: 4 as Stars },
+      { day: addDays(T, 3), stars: 5 as Stars },
+      { day: addDays(T, 20), stars: 3 as Stars },
+    ];
     let s = initialState(T);
-    for (let i = 0; i < 20; i++) s = review(s, 1, T);
-    expect(s.ease).toBe(1.3);
+    for (const h of hist) s = review(s, h.stars, h.day);
+    expect(replay(hist, T)).toEqual(s);
+    expect(diffDays(addDays(T, 20), s.dueDate)).toBe(s.interval);
   });
 });
 
@@ -97,7 +122,7 @@ describe("baza danych", () => {
 
     const q1 = all.find((c) => c.question === "Q1")!;
     const next = await store.rateCard(q1, 4, T);
-    expect(next.dueDate).toBe(addDays(T, 2));
+    expect(next.dueDate).toBe(addDays(T, 3));
     expect(await store.dueCards(T)).toHaveLength(1);
     expect(await store.studyDays()).toEqual([T]);
 
@@ -148,5 +173,82 @@ describe("baza danych", () => {
     await store.deleteCards([a.id, b.id]);
     expect((await store.listCards()).map((k) => k.question)).toEqual(["C"]);
     expect((await store.listTags(T)).map((t) => t.name)).toEqual(["y"]);
+  });
+
+  it("limit nowych fiszek dziennie, powtórki bez limitu, ustawienia", async () => {
+    const store = new Store(await sqlJsDriver());
+    await store.init();
+    expect(await store.getSettings()).toEqual({ retention: 0.9, newPerDay: null, typeAnswer: false });
+    await store.addCards(parseCsv("A,1\nB,2\nC,3\nD,4\nE,5\n").cards, [], addDays(T, -5));
+    // Dwie fiszki powtórzone wcześniej i zaległe dziś.
+    const byQ = async () => Object.fromEntries((await store.listCards()).map((k) => [k.question, k]));
+    let q = await byQ();
+    await store.rateCard(q.D, 3, addDays(T, -5));
+    await store.rateCard(q.E, 3, addDays(T, -5));
+
+    await store.saveSettings({ newPerDay: 2, typeAnswer: true, retention: 0.85 });
+    expect(await store.getSettings()).toEqual({ retention: 0.85, newPerDay: 2, typeAnswer: true });
+    expect((await store.dueCards(T)).map((k) => k.question)).toEqual(["D", "E", "A", "B"]);
+
+    q = await byQ();
+    await store.rateCard(q.A, 4, T);
+    expect(await store.newStudiedToday(T)).toBe(1);
+    expect((await store.dueCards(T)).map((k) => k.question)).toEqual(["D", "E", "B"]);
+    await store.rateCard(q.D, 4, T); // powtórka nie zużywa limitu nowych
+    expect((await store.dueCards(T)).map((k) => k.question)).toEqual(["E", "B"]);
+
+    await store.saveSettings({ newPerDay: 0 });
+    expect((await store.dueCards(T)).map((k) => k.question)).toEqual(["E"]);
+    await store.saveSettings({ newPerDay: null });
+    expect((await store.dueCards(T)).map((k) => k.question)).toEqual(["E", "B", "C"]);
+    await store.saveSettings({ retention: 5 });
+    expect((await store.getSettings()).retention).toBe(0.99);
+  });
+
+  it("migracja z SM-2: odtworzenie historii, terminy nie są przyspieszane", async () => {
+    const driver = await sqlJsDriver();
+    // Baza w formacie 0.4.0.
+    await driver.execute(`CREATE TABLE cards (id INTEGER PRIMARY KEY AUTOINCREMENT, question TEXT NOT NULL, answer TEXT NOT NULL,
+      repetitions INTEGER NOT NULL DEFAULT 0, interval INTEGER NOT NULL DEFAULT 0, ease REAL NOT NULL DEFAULT 2.5,
+      due_date TEXT NOT NULL, last_reviewed TEXT, created_at TEXT NOT NULL, suspended INTEGER NOT NULL DEFAULT 0)`);
+    await driver.execute(`CREATE TABLE reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, card_id INTEGER NOT NULL, stars INTEGER NOT NULL,
+      review_day TEXT NOT NULL, reviewed_at TEXT NOT NULL)`);
+    const d0 = "2026-01-01";
+    const add = (q: string, due: string, last: string | null, rep: number, iv: number) =>
+      driver.execute(`INSERT INTO cards (question, answer, repetitions, interval, ease, due_date, last_reviewed, created_at)
+        VALUES ($1, 'x', $2, $3, 2.5, $4, $5, $6)`, [q, rep, iv, due, last, `${d0}T10:00:00.000Z`]);
+    const rev = (id: number, stars: number, day: string) =>
+      driver.execute(`INSERT INTO reviews (card_id, stars, review_day, reviewed_at) VALUES ($1, $2, $3, $4)`, [id, stars, day, `${day}T12:00:00.000Z`]);
+    // 1: dobrze znana (same piątki) – SM-2 dał termin wcześniejszy niż FSRS.
+    await add("znana", "2026-01-27", "2026-01-10", 3, 17);
+    await rev(1, 5, d0); await rev(1, 5, "2026-01-04"); await rev(1, 5, "2026-01-10");
+    // 2: termin z SM-2 późniejszy niż FSRS – zostaje.
+    await add("odległa", "2027-01-01", "2026-01-02", 1, 364);
+    await rev(2, 3, "2026-01-02");
+    // 3: nowa, bez historii.
+    await add("nowa", d0, null, 0, 0);
+
+    const store = new Store(driver);
+    await store.init();
+    await store.init();
+    const byQ = Object.fromEntries((await store.listCards()).map((k) => [k.question, k]));
+    const expected = replay([{ day: d0, stars: 5 }, { day: "2026-01-04", stars: 5 }, { day: "2026-01-10", stars: 5 }], d0);
+    expect(byQ.znana.stability).toBe(expected.stability);
+    expect(byQ.znana.dueDate).toBe(expected.dueDate);
+    expect(byQ.znana.dueDate > "2026-01-27").toBe(true);
+    expect(byQ.odległa.dueDate).toBe("2027-01-01");
+    expect(byQ.odległa.stability).not.toBeNull();
+    expect(byQ.nowa.stability).toBeNull();
+    expect(byQ.nowa.dueDate).toBe(d0);
+  });
+});
+
+describe("wpisywanie odpowiedzi", () => {
+  it("porównanie odpowiedzi", async () => {
+    const { compareAnswer } = await import("./answer");
+    expect(compareAnswer("  warszawa. ", "Warszawa")).toBe("exact");
+    expect(compareAnswer("Lodz", "Łódź")).toBe("close");
+    expect(compareAnswer("Kraków", "Warszawa")).toBe("wrong");
+    expect(compareAnswer("   ", "Warszawa")).toBe("empty");
   });
 });
