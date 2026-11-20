@@ -3,6 +3,7 @@ import { parseCsv } from "./csv";
 import { addDays, diffDays } from "./dates";
 import { initialState, nextInterval, replay, retrievability, review, SchedulingState, Stars } from "./scheduler";
 import { computeStreak } from "./streak";
+import { computeProgress, formatEta, lastWeeks, secondsPerCard } from "./progress";
 import { Store } from "./db";
 import { sqlJsDriver } from "./drivers";
 
@@ -323,5 +324,49 @@ describe("ekran powitalny", () => {
     await old.addCards([{ question: "a", answer: "b", tags: [] }], [], T);
     expect(await old.needsOnboarding()).toBe(false);
     expect(await old.needsOnboarding()).toBe(false);
+  });
+});
+
+describe("postęp na ekranie Dziś", () => {
+  it("dzieli fiszki na opanowane / w nauce / nowe i liczy przyrost z tygodnia", () => {
+    const created = "2026-10-01T10:00:00";
+    const cards = [
+      { id: 1, interval: 30, lastReviewed: addDays(T, -1), createdAt: created },
+      { id: 2, interval: 5, lastReviewed: addDays(T, -2), createdAt: created },
+      { id: 3, interval: 0, lastReviewed: null, createdAt: created },
+    ];
+    // Fiszka 1 przed tygodniem miała tylko jedną ocenę (krótki odstęp), więc stała się opanowana w tym tygodniu.
+    const reviews = [
+      { cardId: 1, day: "2026-10-01", stars: 4 as Stars },
+      { cardId: 1, day: addDays(T, -1), stars: 5 as Stars },
+      { cardId: 2, day: addDays(T, -2), stars: 3 as Stars },
+    ];
+    expect(computeProgress(cards, reviews, T)).toEqual({ mastered: 1, learning: 1, fresh: 1, masteredThisWeek: 1 });
+  });
+
+  it("szacuje tempo z odstępów w sesji i formatuje czas", () => {
+    const base = Date.parse("2026-11-17T10:00:00Z");
+    const ts = [0, 10, 20, 30, 40, 50, 3600].map((s) => new Date(base + s * 1000).toISOString());
+    expect(secondsPerCard(ts)).toBe(10);
+    expect(secondsPerCard([])).toBe(15);
+    expect(formatEta(24, 15)).toBe("ok. 6 min");
+    expect(formatEta(400, 15)).toBe("ok. 1 h 40 min");
+  });
+
+  it("ostatnie 4 tygodnie zaczynają się w poniedziałek i obejmują dziś", () => {
+    const w = lastWeeks(T, 4);
+    expect(w).toHaveLength(4);
+    expect(w[0][0]).toBe("2026-10-26");
+    expect(w.flat()).toContain(T);
+  });
+
+  it("baza zwraca historię ocen i czasy", async () => {
+    const store = new Store(await sqlJsDriver());
+    await store.init();
+    await store.addCards(parseCsv("A,B\n").cards, [], T);
+    const [c] = await store.listCards();
+    await store.rateCard(c, 4, T);
+    expect(await store.reviewHistory()).toEqual([{ cardId: c.id, day: T, stars: 4 }]);
+    expect(await store.recentReviewTimes()).toHaveLength(1);
   });
 });
