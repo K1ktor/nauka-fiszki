@@ -1,0 +1,48 @@
+# Buduje instalator Windows i publikuje wydanie na GitHub Releases razem z latest.json,
+# z którego aplikacja sama pobiera aktualizacje.
+# Uruchamia się po wypchnięciu tagu, np.: git tag v0.3.0 && git push origin v0.3.0
+name: Wydanie
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - run: npm ci
+
+      - run: npm test
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          tagName: v__VERSION__
+          releaseName: "Fiszki v__VERSION__"
+          releaseBody: "Zainstalowana aplikacja zaproponuje tę wersję sama przy następnym uruchomieniu. Pierwsza instalacja: pobierz plik Fiszki_..._x64-setup.exe poniżej."
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true
+          args: --bundles nsis

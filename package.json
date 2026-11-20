@@ -1,0 +1,32 @@
+{
+  "name": "nauka-fiszki",
+  "private": true,
+  "version": "0.3.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.6.0",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-sql": "^2.3.0",
+    "@tauri-apps/plugin-updater": "^2.14.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sql.js": "^1.16.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.6.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/sql.js": "^1.4.11",
+    "@vitejs/plugin-react": "^6.3.0",
+    "typescript": "~5.8.3",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}
