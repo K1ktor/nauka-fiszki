@@ -77,6 +77,8 @@ export interface TagInfo {
 export interface ImportResult {
   added: number;
   duplicates: number;
+  /** Identyfikatory dodanych fiszek, w kolejności wejścia. */
+  ids: number[];
 }
 
 const SCHEMA = [
@@ -248,6 +250,7 @@ export class Store {
     );
     let added = 0;
     let duplicates = 0;
+    const ids: number[] = [];
     const init = initialState(today);
     const ease = 2.5; // kolumna po SM-2, nieużywana
     for (const c of cards) {
@@ -264,9 +267,10 @@ export class Store {
       );
       const id = res.lastInsertId ?? (await this.lastId());
       await this.setTags(id, [...c.tags, ...extraTags]);
+      ids.push(id);
       added++;
     }
-    return { added, duplicates };
+    return { added, duplicates, ids };
   }
 
   /** Aktywne (nieuśpione) fiszki z wybranych tagów – do nauki bez oceny, opcjonalnie tylko te ze słabą średnią. */

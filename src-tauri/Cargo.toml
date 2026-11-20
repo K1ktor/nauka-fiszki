@@ -1,6 +1,6 @@
 [package]
 name = "fiszki"
-version = "0.5.0"
+version = "0.6.0"
 description = "Lokalna aplikacja do nauki z fiszkami i powtórkami"
 edition = "2021"
 

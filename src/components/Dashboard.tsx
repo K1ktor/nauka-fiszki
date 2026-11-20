@@ -8,6 +8,7 @@ interface Props {
   version: number;
   onStart: (tags: string[]) => void;
   onImport: () => void;
+  onCreate: () => void;
 }
 
 interface Data {
@@ -24,7 +25,7 @@ interface Data {
 const WEEKS = 18;
 const DOW = ["Pn", "", "Śr", "", "Pt", "", ""];
 
-export default function Dashboard({ store, version, onStart, onImport }: Props) {
+export default function Dashboard({ store, version, onStart, onImport, onCreate }: Props) {
   const [data, setData] = useState<Data | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const today = toDay();
@@ -59,8 +60,11 @@ export default function Dashboard({ store, version, onStart, onImport }: Props) 
     return (
       <div className="empty">
         <h1>Witaj! 👋</h1>
-        <p className="muted">Nie masz jeszcze żadnych fiszek. Zaimportuj plik CSV w formacie <code>pytanie,odpowiedź</code>, aby zacząć.</p>
-        <button className="primary big" onClick={onImport}>Importuj fiszki z CSV</button>
+        <p className="muted">Nie masz jeszcze żadnych fiszek. Dodaj je po kolei w kreatorze albo zaimportuj plik CSV w formacie <code>pytanie,odpowiedź</code>.</p>
+        <div className="start-row">
+          <button className="primary big" onClick={onCreate}>✍️ Otwórz kreator</button>
+          <button className="big" onClick={onImport}>📄 Importuj z CSV</button>
+        </div>
       </div>
     );
   }

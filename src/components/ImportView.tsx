@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { Store } from "../lib/db";
 import { parseCsv, parseTags } from "../lib/csv";
+import { CHATGPT_URL, CLAUDE_URL, copyText, openExternal } from "../lib/external";
+import { CLAUDE_COLOR, CLAUDE_PATH, OPENAI_PATH } from "../lib/logos";
 
 interface Props {
   store: Store;
@@ -14,12 +16,46 @@ Ile wynosi pierwiastek z 144?,12,matematyka
 Kto napisał „Pana Tadeusza”?,Adam Mickiewicz,literatura|polski
 `;
 
+export const AI_PROMPT = `Z materiałów, które wkleję poniżej, utwórz fiszki do nauki.
+Zwróć wyłącznie dane CSV – bez komentarzy, nagłówka i bloku kodu – po jednej fiszce w wierszu, w formacie:
+"pytanie","odpowiedź","tagi"
+Zasady:
+- każde pole ujmij w cudzysłów, a cudzysłów wewnątrz pola zapisz podwójnie ("")
+- kilka tagów oddziel znakiem |, np. "biologia|komórka"
+- jedno pytanie sprawdza jedną rzecz, odpowiedź jest krótka i konkretna
+- pisz w języku materiałów
+Materiały:
+`;
+
+function Logo({ path, color }: { path: string; color?: string }) {
+  return (
+    <svg className="ai-logo" viewBox="0 0 24 24" aria-hidden="true" style={color ? { color } : undefined}>
+      <path d={path} fill="currentColor" />
+    </svg>
+  );
+}
+
 export default function ImportView({ store, onImported }: Props) {
   const [text, setText] = useState("");
   const [fileName, setFileName] = useState("");
   const [extraTags, setExtraTags] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [aiNote, setAiNote] = useState<string | null>(null);
+
+  const copyPrompt = async () => {
+    const ok = await copyText(AI_PROMPT);
+    setAiNote(ok ? "Prompt skopiowany – wklej go w czacie (Ctrl+V), a pod nim swoje notatki." : "Nie udało się skopiować – zaznacz prompt i skopiuj ręcznie.");
+  };
+
+  const openChat = async (url: string) => {
+    await copyPrompt();
+    try {
+      await openExternal(url);
+    } catch (e) {
+      setAiNote(`Nie udało się otworzyć przeglądarki: ${e}`);
+    }
+  };
 
   const parsed = useMemo(() => (text.trim() ? parseCsv(text) : null), [text]);
 
@@ -45,7 +81,6 @@ export default function ImportView({ store, onImported }: Props) {
 
   return (
     <div>
-      <h1>Import fiszek z CSV</h1>
       <section className="panel">
         <p>
           Każdy wiersz to jedna fiszka: <code>pytanie,odpowiedź</code>. Opcjonalnie trzecia kolumna z tagami
@@ -54,6 +89,31 @@ export default function ImportView({ store, onImported }: Props) {
         </p>
         <pre className="example">{EXAMPLE}</pre>
         <button className="link" onClick={() => { setText(EXAMPLE); setResult(null); }}>Wstaw przykład do pola poniżej</button>
+      </section>
+
+      <section className="panel ai-hint">
+        <div className="ai-hint-head">
+          <div>
+            <h2>✨ Nie masz pliku? Wygeneruj go z AI</h2>
+            <p className="muted">
+              Masz notatki, rozdział podręcznika albo listę pojęć? Wklej je do ChatGPT lub Claude razem z promptem poniżej –
+              dostaniesz gotowe dane CSV, które wkleisz tutaj w pole importu.
+            </p>
+          </div>
+          <div className="ai-buttons">
+            <button className="ai-btn" onClick={() => openChat(CHATGPT_URL)} title="Kopiuje prompt i otwiera chatgpt.com w przeglądarce">
+              <Logo path={OPENAI_PATH} /> ChatGPT
+            </button>
+            <button className="ai-btn" onClick={() => openChat(CLAUDE_URL)} title="Kopiuje prompt i otwiera claude.ai w przeglądarce">
+              <Logo path={CLAUDE_PATH} color={CLAUDE_COLOR} /> Claude
+            </button>
+          </div>
+        </div>
+        <pre className="example ai-prompt">{AI_PROMPT}</pre>
+        <div className="ai-foot">
+          <button onClick={copyPrompt}>📋 Kopiuj prompt</button>
+          <span className="muted small">{aiNote ?? "Przyciski czatów też kopiują prompt. Wynik z czatu wklej w pole poniżej."}</span>
+        </div>
       </section>
 
       <section className="panel">

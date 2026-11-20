@@ -6,6 +6,7 @@ import Dashboard from "./components/Dashboard";
 import Study from "./components/Study";
 import CardList from "./components/CardList";
 import ImportView from "./components/ImportView";
+import Creator from "./components/Creator";
 import LearnMenu from "./components/LearnMenu";
 import PracticeSetup from "./components/PracticeSetup";
 import Practice from "./components/Practice";
@@ -24,7 +25,7 @@ const NAV: { id: View; label: string }[] = [
   { id: "dashboard", label: "Dziś" },
   { id: "learn", label: "Nauka" },
   { id: "cards", label: "Fiszki" },
-  { id: "import", label: "Import CSV" },
+  { id: "import", label: "Dodaj fiszki" },
 ];
 
 function navOf(v: View): View {
@@ -35,6 +36,7 @@ export default function App() {
   const [store, setStore] = useState<Store | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("dashboard");
+  const [addMode, setAddMode] = useState<"creator" | "csv">("creator");
   const [studyTags, setStudyTags] = useState<string[]>([]);
   const [practice, setPractice] = useState<{ tags: string[]; shuffle: boolean; stars: StarFilter }>({ tags: [], shuffle: true, stars: NO_STAR_FILTER });
   // Licznik zmian – odświeża widoki po imporcie/ocenie.
@@ -97,7 +99,7 @@ export default function App() {
       </aside>
       <main className="content">
         <Updater />
-        {view === "dashboard" && <Dashboard store={store} version={version} onStart={startStudy} onImport={() => setView("import")} />}
+        {view === "dashboard" && <Dashboard store={store} version={version} onStart={startStudy} onImport={() => { setAddMode("csv"); setView("import"); }} onCreate={() => { setAddMode("creator"); setView("import"); }} />}
         {view === "study" && (
           <Study store={store} tags={studyTags} onChange={bump} onDone={() => setView("dashboard")} />
         )}
@@ -118,7 +120,26 @@ export default function App() {
           <Practice store={store} tags={practice.tags} shuffle={practice.shuffle} stars={practice.stars} onBack={() => setView("practice-setup")} />
         )}
         {view === "cards" && <CardList store={store} version={version} onChange={bump} />}
-        {view === "import" && <ImportView store={store} onImported={() => { bump(); setView("cards"); }} />}
+        {view === "import" && (
+          <div>
+            <div className="panel-head add-head">
+              <h1>Dodaj fiszki</h1>
+              <div className="segmented" role="tablist" aria-label="Sposób dodawania">
+                <button role="tab" aria-selected={addMode === "creator"} className={addMode === "creator" ? "on" : ""} onClick={() => setAddMode("creator")}>
+                  ✍️ Kreator
+                </button>
+                <button role="tab" aria-selected={addMode === "csv"} className={addMode === "csv" ? "on" : ""} onClick={() => setAddMode("csv")}>
+                  📄 Import CSV
+                </button>
+              </div>
+            </div>
+            {/* Kreator zostaje zamontowany, żeby lista „Dodane teraz” nie znikała po zajrzeniu do importu. */}
+            <div hidden={addMode !== "creator"}>
+              <Creator store={store} onChange={bump} onDone={() => setView("cards")} />
+            </div>
+            {addMode === "csv" && <ImportView store={store} onImported={() => { bump(); setView("cards"); }} />}
+          </div>
+        )}
       </main>
     </div>
   );
