@@ -21,7 +21,8 @@ const HEADER_WORDS = ["pytanie", "question", "przód", "przod", "front"];
  * - nagłówek (np. "pytanie,odpowiedź") jest pomijany
  */
 export function parseCsv(text: string): CsvParseResult {
-  const clean = text.replace(/^﻿/, "");
+  // BOM oraz linie ``` – czat AI czasem i tak opakowuje odpowiedź w blok kodu.
+  const clean = text.replace(/^﻿/, "").replace(/^[ \t]*```[^\n]*\n?/gm, "");
   const delimiter = detectDelimiter(clean);
   const rows = splitRows(clean, delimiter);
   const cards: ParsedCard[] = [];

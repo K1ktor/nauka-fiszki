@@ -4,7 +4,14 @@ Desktopowa aplikacja do samodzielnej nauki z fiszkami. Wszystkie dane zostają n
 
 ## Funkcje
 
+- **Ekran powitalny przy pierwszym uruchomieniu** (tylko na pustej bazie): wybór konta (logowanie Google – wkrótce,
+  albo lokalnie), pierwsze fiszki (kreator lub import CSV) i tempo nauki (nowe fiszki dziennie, docelowa skuteczność).
+- **Kreator fiszek** (zakładka Dodaj fiszki) – dodawanie po jednej: pytanie i odpowiedź obok siebie, `Tab` przechodzi
+  do odpowiedzi, `Ctrl+Enter` zapisuje i czyści pola pod kolejną fiszkę. Tagi zostają między fiszkami, ostrzeżenie o
+  duplikacie od razu przy wpisywaniu, opcja „dodaj też odwrotną” (np. przy słówkach) i lista ostatnio dodanych z
+  możliwością poprawienia lub usunięcia.
 - **Import fiszek z CSV** w formacie `pytanie,odpowiedź` (opcjonalnie trzecia kolumna z tagami: `biologia|komórka`).
+  Plik można wygenerować w ChatGPT lub Claude: gotowy prompt do skopiowania i przyciski otwierające czat w przeglądarce.
   Separator (przecinek, średnik, tabulator) jest wykrywany automatycznie, działają cudzysłowy i pola wieloliniowe,
   nagłówek jest pomijany, duplikaty pytań są pomijane. Podgląd przed importem i możliwość dodania tagów do całego pliku.
 - **Samoocena 1–5 gwiazdek** po odsłonięciu odpowiedzi (klawisze: `Spacja` – pokaż odpowiedź, `1`–`5` – ocena).

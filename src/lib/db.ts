@@ -77,6 +77,8 @@ export interface TagInfo {
 export interface ImportResult {
   added: number;
   duplicates: number;
+  /** Identyfikatory dodanych fiszek, w kolejności wejścia. */
+  ids: number[];
 }
 
 const SCHEMA = [
@@ -204,6 +206,25 @@ export class Store {
     if (patch.typeAnswer !== undefined) await put("typeAnswer", patch.typeAnswer ? "1" : "0");
   }
 
+  /** Czy pokazać ekran powitalny: tylko przy pierwszym uruchomieniu na pustej bazie. */
+  async needsOnboarding(): Promise<boolean> {
+    const done = await this.db.select<{ value: string }>(`SELECT value FROM settings WHERE key = 'onboarded'`);
+    if (done.length > 0) return false;
+    const n = await this.db.select<{ n: number }>(`SELECT COUNT(*) AS n FROM cards`);
+    if (Number(n[0]?.n ?? 0) > 0) {
+      // Dotychczasowy użytkownik z fiszkami – nie pokazujemy mu powitania.
+      await this.finishOnboarding("local");
+      return false;
+    }
+    return true;
+  }
+
+  async finishOnboarding(account: "local" | "google"): Promise<void> {
+    for (const [k, v] of [["onboarded", "1"], ["account", account]]) {
+      await this.db.execute(`INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [k, v]);
+    }
+  }
+
   /** Ile nowych fiszek oceniono dziś po raz pierwszy. */
   async newStudiedToday(today: DayString): Promise<number> {
     const [r] = await this.db.select<{ n: number }>(
@@ -248,6 +269,7 @@ export class Store {
     );
     let added = 0;
     let duplicates = 0;
+    const ids: number[] = [];
     const init = initialState(today);
     const ease = 2.5; // kolumna po SM-2, nieużywana
     for (const c of cards) {
@@ -264,9 +286,10 @@ export class Store {
       );
       const id = res.lastInsertId ?? (await this.lastId());
       await this.setTags(id, [...c.tags, ...extraTags]);
+      ids.push(id);
       added++;
     }
-    return { added, duplicates };
+    return { added, duplicates, ids };
   }
 
   /** Aktywne (nieuśpione) fiszki z wybranych tagów – do nauki bez oceny, opcjonalnie tylko te ze słabą średnią. */

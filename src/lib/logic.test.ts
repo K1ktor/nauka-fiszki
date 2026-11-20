@@ -110,7 +110,7 @@ describe("baza danych", () => {
     const store = new Store(await sqlJsDriver());
     await store.init();
     const { cards } = parseCsv("Q1,A1,matma\nQ2,A2\nq1,inna\n");
-    expect(await store.addCards(cards, ["Kurs"], T)).toEqual({ added: 2, duplicates: 1 });
+    expect(await store.addCards(cards, ["Kurs"], T)).toMatchObject({ added: 2, duplicates: 1 });
 
     const all = await store.listCards();
     expect(all.find((c) => c.question === "Q1")?.tags).toEqual(["kurs", "matma"]);
@@ -264,5 +264,64 @@ describe("eksport CSV", () => {
     const csv = toCsv(cards);
     expect(csv.startsWith("﻿pytanie,odpowiedź,tagi\r\n")).toBe(true);
     expect(parseCsv(csv).cards).toEqual(cards);
+  });
+});
+
+describe("kreator", () => {
+  it("fiszka i jej odwrotność", async () => {
+    const { cardsFromDraft } = await import("./creator");
+    expect(cardsFromDraft("  dog ", "pies", ["ang"], false)).toEqual([{ question: "dog", answer: "pies", tags: ["ang"] }]);
+    expect(cardsFromDraft("dog", "pies", [], true)).toEqual([
+      { question: "dog", answer: "pies", tags: [] },
+      { question: "pies", answer: "dog", tags: [] },
+    ]);
+    expect(cardsFromDraft("", "pies", [], true)).toEqual([]);
+    expect(cardsFromDraft("Echo", "echo", [], true)).toHaveLength(1);
+  });
+
+  it("przełączanie tagów w polu tekstowym", async () => {
+    const { toggleTagText } = await import("./creator");
+    expect(toggleTagText("", "ang")).toBe("ang");
+    expect(toggleTagText("ang, rozdział 1", "Ang")).toBe("rozdział 1");
+    expect(toggleTagText("ang|b", "c")).toBe("ang, b, c");
+  });
+
+  it("addCards zwraca id dodanych fiszek, pomija duplikat odwrotnej", async () => {
+    const store = new Store(await sqlJsDriver());
+    await store.init();
+    await store.addCards([{ question: "pies", answer: "x", tags: [] }], [], T);
+    const r = await store.addCards([{ question: "dog", answer: "pies", tags: [] }, { question: "pies", answer: "dog", tags: [] }], [], T);
+    expect(r.added).toBe(1);
+    expect(r.duplicates).toBe(1);
+    const all = await store.listCards();
+    expect(all.find((c) => c.id === r.ids[0])?.question).toBe("dog");
+  });
+});
+
+describe("CSV z czatu AI", () => {
+  it("odpowiedź w formacie z promptu, także w bloku kodu", () => {
+    const out = '```csv\n"Stolica Francji?","Paryż","geografia|europa"\n"Co znaczy ""DNA""?","Kwas, deoksyrybonukleinowy","biologia"\n```\n';
+    const r = parseCsv(out);
+    expect(r.skipped).toEqual([]);
+    expect(r.cards).toEqual([
+      { question: "Stolica Francji?", answer: "Paryż", tags: ["geografia", "europa"] },
+      { question: 'Co znaczy "DNA"?', answer: "Kwas, deoksyrybonukleinowy", tags: ["biologia"] },
+    ]);
+  });
+});
+
+describe("ekran powitalny", () => {
+  it("tylko na pustej bazie i tylko raz", async () => {
+    const store = new Store(await sqlJsDriver());
+    await store.init();
+    expect(await store.needsOnboarding()).toBe(true);
+    await store.finishOnboarding("local");
+    expect(await store.needsOnboarding()).toBe(false);
+
+    const old = new Store(await sqlJsDriver());
+    await old.init();
+    await old.addCards([{ question: "a", answer: "b", tags: [] }], [], T);
+    expect(await old.needsOnboarding()).toBe(false);
+    expect(await old.needsOnboarding()).toBe(false);
   });
 });
