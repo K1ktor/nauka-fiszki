@@ -145,7 +145,16 @@ export default function LearnMenu({ store, version, onRated, onFree }: Props) {
             onChange={(e) => save({ retention: Number(e.target.value) / 100 })}
           />
           <b>{retentionPct}%</b>
-          {retentionPct !== 90 && <button className="link" onClick={() => save({ retention: 0.9 })}>przywróć 90%</button>}
+          {/* Przycisk zawsze zajmuje miejsce (tylko ukryty), żeby suwak nie zmieniał szerokości przy 90%. */}
+          <button
+            className="link"
+            style={{ visibility: retentionPct === 90 ? "hidden" : "visible" }}
+            aria-hidden={retentionPct === 90}
+            tabIndex={retentionPct === 90 ? -1 : 0}
+            onClick={() => save({ retention: 0.9 })}
+          >
+            przywróć 90%
+          </button>
         </div>
         <p className="muted small">
           FSRS planuje powtórkę na moment, gdy szansa, że jeszcze pamiętasz fiszkę, spadnie do {retentionPct}%.

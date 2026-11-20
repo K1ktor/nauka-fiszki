@@ -309,3 +309,19 @@ describe("CSV z czatu AI", () => {
     ]);
   });
 });
+
+describe("ekran powitalny", () => {
+  it("tylko na pustej bazie i tylko raz", async () => {
+    const store = new Store(await sqlJsDriver());
+    await store.init();
+    expect(await store.needsOnboarding()).toBe(true);
+    await store.finishOnboarding("local");
+    expect(await store.needsOnboarding()).toBe(false);
+
+    const old = new Store(await sqlJsDriver());
+    await old.init();
+    await old.addCards([{ question: "a", answer: "b", tags: [] }], [], T);
+    expect(await old.needsOnboarding()).toBe(false);
+    expect(await old.needsOnboarding()).toBe(false);
+  });
+});

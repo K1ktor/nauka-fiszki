@@ -11,6 +11,7 @@ import LearnMenu from "./components/LearnMenu";
 import PracticeSetup from "./components/PracticeSetup";
 import Practice from "./components/Practice";
 import Updater from "./components/Updater";
+import Onboarding from "./components/Onboarding";
 import { applyTheme, loadTheme, Theme } from "./lib/theme";
 
 const THEMES: { id: Theme; icon: string; label: string }[] = [
@@ -34,6 +35,7 @@ function navOf(v: View): View {
 
 export default function App() {
   const [store, setStore] = useState<Store | null>(null);
+  const [onboarding, setOnboarding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("dashboard");
   const [addMode, setAddMode] = useState<"creator" | "csv">("creator");
@@ -59,6 +61,7 @@ export default function App() {
         const driver = isTauri() ? await tauriDriver() : await sqlJsDriver({ persist: true, wasmUrl });
         const s = new Store(driver);
         await s.init();
+        setOnboarding(await s.needsOnboarding());
         setStore(s);
       } catch (e) {
         setError(String(e));
@@ -68,6 +71,22 @@ export default function App() {
 
   if (error) return <div className="center error">Nie udało się otworzyć bazy danych: {error}</div>;
   if (!store) return <div className="center muted">Ładowanie…</div>;
+
+  if (onboarding) {
+    return (
+      <Onboarding
+        store={store}
+        onDone={(first) => {
+          setOnboarding(false);
+          bump();
+          if (first) {
+            setAddMode(first);
+            setView("import");
+          }
+        }}
+      />
+    );
+  }
 
   const startStudy = (tags: string[]) => {
     setStudyTags(tags);
