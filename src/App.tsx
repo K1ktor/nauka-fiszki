@@ -11,7 +11,7 @@ import LearnMenu from "./components/LearnMenu";
 import PracticeSetup from "./components/PracticeSetup";
 import Practice from "./components/Practice";
 import Updater from "./components/Updater";
-import Onboarding from "./components/Onboarding";
+import Onboarding, { GoogleLogo } from "./components/Onboarding";
 import { applyTheme, loadTheme, Theme } from "./lib/theme";
 
 const THEMES: { id: Theme; icon: string; label: string }[] = [
@@ -36,6 +36,7 @@ function navOf(v: View): View {
 export default function App() {
   const [store, setStore] = useState<Store | null>(null);
   const [onboarding, setOnboarding] = useState(false);
+  const [account, setAccount] = useState<"local" | "google">("local");
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("dashboard");
   const [addMode, setAddMode] = useState<"creator" | "csv">("csv");
@@ -63,6 +64,7 @@ export default function App() {
         const s = new Store(driver);
         await s.init();
         setOnboarding(await s.needsOnboarding());
+        setAccount(await s.getAccount());
         setStore(s);
       } catch (e) {
         setError(String(e));
@@ -109,6 +111,14 @@ export default function App() {
             </button>
           ))}
         </nav>
+        {account !== "google" && (
+          <div className="login-box">
+            <button className="login-btn" disabled title="Logowanie przez Google będzie dostępne wkrótce">
+              <GoogleLogo /> Zaloguj się
+            </button>
+            <span className="small muted">Kopia fiszek w chmurze · wkrótce</span>
+          </div>
+        )}
         <div className="theme-switch" role="radiogroup" aria-label="Motyw">
           {THEMES.map((t) => (
             <button key={t.id} className={theme === t.id ? "on" : ""} title={t.label} aria-label={t.label} aria-checked={theme === t.id} role="radio" onClick={() => changeTheme(t.id)}>

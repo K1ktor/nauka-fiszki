@@ -390,3 +390,8 @@ kbd.plain { margin: 0; background: var(--surface-2); border: 1px solid var(--bor
 @media (max-width: 560px) { .onb-options.three { grid-template-columns: 1fr; } }
 button.link.app-version { text-align: left; color: var(--muted); }
 button.link.app-version:hover { color: var(--accent); }
+.login-box { margin-top: auto; display: flex; flex-direction: column; gap: 0.35rem; padding: 0.8rem; border: 1px solid var(--border); border-radius: 0.6667rem; background: var(--surface); }
+.login-box + .theme-switch { margin-top: 0; }
+.login-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; font-weight: 600; width: 100%; }
+.login-btn .ai-logo { width: 1.05rem; height: 1.05rem; }
+.login-box .small { font-size: 0.75rem; text-align: center; }

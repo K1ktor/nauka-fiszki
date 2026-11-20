@@ -219,6 +219,12 @@ export class Store {
     return true;
   }
 
+  /** Rodzaj konta: „google” po zalogowaniu (jeszcze niedostępne), inaczej „local”. */
+  async getAccount(): Promise<"local" | "google"> {
+    const r = await this.db.select<{ value: string }>(`SELECT value FROM settings WHERE key = 'account'`);
+    return r[0]?.value === "google" ? "google" : "local";
+  }
+
   async finishOnboarding(account: "local" | "google"): Promise<void> {
     for (const [k, v] of [["onboarded", "1"], ["account", account]]) {
       await this.db.execute(`INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [k, v]);
