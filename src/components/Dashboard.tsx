@@ -2,6 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import { buildQueue, Card, isNew, Store, TagInfo } from "../lib/db";
 import { addDays, parseDay, toDay } from "../lib/dates";
 import { computeStreak, StreakInfo } from "../lib/streak";
+import {
+  BookOpen,
+  CalendarDays,
+  ChartNoAxesColumn,
+  ChevronRight,
+  CircleCheck,
+  Flame,
+  GraduationCap,
+  Layers,
+  Play,
+  SquareCheck,
+  SquarePlus,
+  Star,
+  Tag,
+  Timer,
+  Trophy,
+} from "lucide-react";
 import { computeProgress, formatEta, lastWeeks, MASTERED_DAYS, ProgressInfo, secondsPerCard } from "../lib/progress";
 
 interface Props {
@@ -114,13 +131,26 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
 
   return (
     <div className="dashboard">
-      <h1 className="dash-title">Dziś</h1>
-      <p className="muted dash-date">{dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1)}</p>
+      <div className="dash-top">
+        <div>
+          <h1 className="dash-title">Dziś</h1>
+          <p className="muted dash-date">
+            <CalendarDays className="ico" aria-hidden="true" />
+            {dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1)}
+          </p>
+        </div>
+        {streak.current > 0 && (
+          <div className="streak-badge" title="Seria dni z rzędu">
+            <Flame className="ico" aria-hidden="true" /> Seria: <b>{streak.current} {streak.current === 1 ? "dzień" : "dni"}</b>
+          </div>
+        )}
+      </div>
 
       <section className="panel plan">
         <PlanRing done={reviewedToday} total={plan} />
         <div className="plan-body">
           <h2 className="plan-title">
+            <Timer className="ico plan-ico" aria-hidden="true" />
             {due.length > 0
               ? `${reviewedToday > 0 ? "Zostało" : "Na dziś"} ${due.length} ${plural(due.length, "fiszka", "fiszki", "fiszek")} · ${formatEta(due.length, perCard)}`
               : plan > 0
@@ -136,7 +166,7 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
               <div className={allTags ? "chips chips-scroll" : "chips"}>
                 {shownTags.map((t) => (
                   <button key={t.name} className={selected.includes(t.name) ? "chip on" : "chip"} onClick={() => toggle(t.name)}>
-                    #{t.name} <span className="chip-count">{t.queue}/{t.count}</span>
+                    <Tag className="ico chip-ico" aria-hidden="true" />#{t.name} <span className="chip-count">{t.queue}/{t.count}</span>
                   </button>
                 ))}
                 {!allTags && hiddenCount > 0 && (
@@ -151,9 +181,22 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
           )}
           <div className="start-row">
             <button className="primary big" disabled={due.length === 0} onClick={() => onStart(selected)}>
-              {due.length > 0 ? `${reviewedToday > 0 ? "Ucz się dalej" : "Ucz się"} (${due.length})` : "Wszystko powtórzone 🎉"}
+              {due.length > 0 ? (
+                <>
+                  <Play className="ico btn-ico" aria-hidden="true" />
+                  {`${reviewedToday > 0 ? "Ucz się dalej" : "Ucz się"} (${due.length})`}
+                  <ChevronRight className="ico btn-ico-end" aria-hidden="true" />
+                </>
+              ) : (
+                "Wszystko powtórzone 🎉"
+              )}
             </button>
           </div>
+        </div>
+        <div className="plan-deco" aria-hidden="true">
+          <span className="deco-card c1" />
+          <span className="deco-card c2" />
+          <span className="deco-card c3"><GraduationCap /></span>
         </div>
       </section>
 
@@ -161,8 +204,8 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
         <div className="dash-col">
           <section className="panel">
             <div className="panel-head">
-              <h2>Seria</h2>
-              <span className="muted">rekord {streak.best}</span>
+              <h2><Flame className="ico head-ico fire" aria-hidden="true" />Seria</h2>
+              <span className="pill"><Trophy className="ico" aria-hidden="true" /> rekord {streak.best}</span>
             </div>
             <div className="streak-row">
               <div className={`streak-info ${streak.studiedToday ? "lit" : ""}`}>
@@ -170,7 +213,7 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
                 <div className="streak-label muted">{streak.current === 1 ? "dzień" : "dni"} z rzędu</div>
                 <div className="streak-note muted">
                   {streak.studiedToday
-                    ? "Dzisiejszy dzień zaliczony ✓"
+                    ? <><CircleCheck className="ico ok-ico" aria-hidden="true" /> Dzisiejszy dzień zaliczony</>
                     : streak.current > 0
                       ? <span className="warn">Ucz się dziś, aby nie stracić serii!</span>
                       : "Zacznij dziś nową serię."}
@@ -185,7 +228,7 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
           </section>
           <section className="panel">
             <div className="panel-head">
-              <h2>Najbliższe 7 dni</h2>
+              <h2><CalendarDays className="ico head-ico" aria-hidden="true" />Najbliższe 7 dni</h2>
               <span className="muted">łącznie {Array.from({ length: 7 }, (_, i) => forecast[addDays(today, i)] ?? 0).reduce((a, b) => a + b, 0)}</span>
             </div>
             <Forecast forecast={forecast} today={today} />
@@ -194,8 +237,8 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
 
         <section className="panel progress-panel">
           <div className="panel-head">
-            <h2>Postęp</h2>
-            <span className="muted">{cards.length} {plural(cards.length, "fiszka", "fiszki", "fiszek")}</span>
+            <h2><ChartNoAxesColumn className="ico head-ico" aria-hidden="true" />Postęp</h2>
+            <span className="muted"><Layers className="ico" aria-hidden="true" /> {cards.length} {plural(cards.length, "fiszka", "fiszki", "fiszek")}</span>
           </div>
           <div className="progress-n">{progress.mastered} <span className="muted">opanowane</span></div>
           <div className="progress-delta">
@@ -211,13 +254,14 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
             <i className="m-new" style={{ flex: progress.fresh }} />
           </div>
           <div className="mastery-tiles">
-            <Tile dot="m-mastered" label="Opanowane" value={progress.mastered} hint={`powtórka za ${MASTERED_DAYS}+ dni`} />
-            <Tile dot="m-learning" label="W nauce" value={progress.learning} hint="jeszcze się utrwalają" />
-            <Tile dot="m-new" label="Nowe" value={progress.fresh} hint="czekają na pierwszy raz" />
+            <Tile icon={SquareCheck} dot="m-mastered" label="Opanowane" value={progress.mastered} hint={`powtórka za ${MASTERED_DAYS}+ dni`} />
+            <Tile icon={BookOpen} dot="m-learning" label="W nauce" value={progress.learning} hint="jeszcze się utrwalają" />
+            <Tile icon={SquarePlus} dot="m-new" label="Nowe" value={progress.fresh} hint="czekają na pierwszy raz" />
             <Tile
+              icon={Star}
               dot="m-star"
               label="Średnia ocen"
-              value={<><span className="avg-star">★</span> {fmtAvg(avgWeek.avg)}</>}
+              value={fmtAvg(avgWeek.avg)}
               hint="z ostatnich 7 dni"
             />
           </div>
@@ -227,10 +271,10 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
   );
 }
 
-function Tile({ dot, label, value, hint }: { dot: string; label: string; value: React.ReactNode; hint: string }) {
+function Tile({ icon: Icon, dot, label, value, hint }: { icon: typeof Star; dot: string; label: string; value: React.ReactNode; hint: string }) {
   return (
     <div className="m-tile">
-      <span><i className={`m-dot ${dot}`} />{label}</span>
+      <span><Icon className={`m-icon ${dot}`} aria-hidden="true" />{label}</span>
       <b>{value}</b>
       <small className="muted">{hint}</small>
     </div>
@@ -245,6 +289,12 @@ function PlanRing({ done, total }: { done: number; total: number }) {
   return (
     <div className="ring" title={`${done} z ${total} fiszek na dziś`}>
       <svg viewBox="0 0 132 132">
+        <defs>
+          <linearGradient id="ring-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#c4b5fd" />
+            <stop offset="100%" stopColor="#8b5cf6" />
+          </linearGradient>
+        </defs>
         <circle cx="66" cy="66" r={r} className="ring-track" />
         <circle cx="66" cy="66" r={r} className="ring-fill" strokeDasharray={c} strokeDashoffset={c * (1 - frac)} />
       </svg>
