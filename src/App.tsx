@@ -76,6 +76,8 @@ export default function App() {
     return (
       <Onboarding
         store={store}
+        theme={theme}
+        onTheme={changeTheme}
         onDone={(first) => {
           setOnboarding(false);
           bump();

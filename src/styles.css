@@ -375,3 +375,20 @@ kbd.plain { margin: 0; background: var(--surface-2); border: 1px solid var(--bor
 .onb-option:disabled { opacity: 0.75; }
 .onb-option-icon .ai-logo { width: 1.8rem; height: 1.8rem; }
 .onb-option-icon { line-height: 1; height: 1.8rem; display: flex; align-items: center; }
+.onb-options.three { grid-template-columns: repeat(3, 1fr); }
+.onb-option.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+/* Miniatury motywów – stałe kolory, niezależne od bieżącego motywu */
+.theme-preview { display: flex; width: 100%; max-width: 9rem; aspect-ratio: 16 / 10; border-radius: 0.5rem; overflow: hidden; border: 1px solid rgba(0,0,0,0.12); margin-bottom: 0.4rem; }
+.theme-preview .tp-side { width: 28%; }
+.theme-preview .tp-main { flex: 1; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.theme-preview .tp-card { border-radius: 0.3rem; padding: 0.35rem; display: flex; flex-direction: column; gap: 0.25rem; flex: 1; }
+.theme-preview .tp-line { height: 0.3rem; border-radius: 1rem; display: block; }
+.tp-line.w60 { width: 60%; } .tp-line.w80 { width: 80%; } .tp-line.w50 { width: 50%; }
+.theme-preview.light { background: #f6f5f1; } .theme-preview.light .tp-side { background: #ffffff; border-right: 1px solid #e4e1d9; }
+.theme-preview.light .tp-card { background: #fff; border: 1px solid #e4e1d9; } .theme-preview.light .tp-line { background: #cfccc4; } .theme-preview.light .tp-line.w60 { background: #4f46e5; }
+.theme-preview.dark { background: #141413; border-color: #34332f; } .theme-preview.dark .tp-side { background: #1e1e1c; border-right: 1px solid #34332f; }
+.theme-preview.dark .tp-card { background: #1e1e1c; border: 1px solid #34332f; } .theme-preview.dark .tp-line { background: #4a4944; } .theme-preview.dark .tp-line.w60 { background: #8b85ff; }
+.theme-preview.system { position: relative; border: none; }
+.theme-preview.system > .theme-preview { position: absolute; inset: 0; margin: 0; max-width: none; }
+.theme-preview.system > .theme-preview.dark { clip-path: polygon(58% 0, 100% 0, 100% 100%, 42% 100%); }
+@media (max-width: 560px) { .onb-options.three { grid-template-columns: 1fr; } }
