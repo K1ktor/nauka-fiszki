@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Card, Store } from "../lib/db";
+import { Card, StarFilter, Store } from "../lib/db";
 
 interface Props {
   store: Store;
   tags: string[];
   shuffle: boolean;
+  stars: StarFilter;
   onBack: () => void;
 }
 
@@ -18,19 +19,19 @@ function shuffled<T>(arr: T[]): T[] {
 }
 
 /** Nauka bez oceny: przeglądanie fiszek bez wpływu na terminy powtórek i statystyki. */
-export default function Practice({ store, tags, shuffle, onBack }: Props) {
+export default function Practice({ store, tags, shuffle, stars, onBack }: Props) {
   const [queue, setQueue] = useState<Card[] | null>(null);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [round, setRound] = useState(0);
 
   useEffect(() => {
-    store.practiceCards(tags).then((c) => {
+    store.practiceCards(tags, stars).then((c) => {
       setQueue(shuffle ? shuffled(c) : c);
       setIndex(0);
       setRevealed(false);
     });
-  }, [store, tags, shuffle, round]);
+  }, [store, tags, shuffle, stars, round]);
 
   const card = queue?.[index];
   const next = () => {
@@ -63,7 +64,8 @@ export default function Practice({ store, tags, shuffle, onBack }: Props) {
       <div className="empty">
         <h1>Przejrzano wszystkie fiszki 👏</h1>
         <p className="muted">
-          {queue.length} fiszek{tags.length ? ` z tagów ${tags.map((t) => "#" + t).join(", ")}` : ""}. Bez wpływu na terminy powtórek.
+          {queue.length} fiszek{tags.length ? ` z tagów ${tags.map((t) => "#" + t).join(", ")}` : ""}
+          {stars.below !== null ? ` ze średnią poniżej ${stars.below.toLocaleString("pl-PL")}★` : ""}. Bez wpływu na terminy powtórek.
         </p>
         <div className="start-row">
           <button className="primary" onClick={() => setRound((r) => r + 1)}>Jeszcze raz</button>
@@ -80,7 +82,10 @@ export default function Practice({ store, tags, shuffle, onBack }: Props) {
       </div>
       <div className="study-meta muted">
         <span>{index + 1} / {queue.length} · bez oceny</span>
-        <span>{card.tags.map((t) => "#" + t).join(" ")}</span>
+        <span>
+          {card.avgStars !== null ? `śr. ${card.avgStars.toLocaleString("pl-PL", { maximumFractionDigits: 1 })}★ · ` : ""}
+          {card.tags.map((t) => "#" + t).join(" ")}
+        </span>
         <button className="link" onClick={onBack}>zakończ</button>
       </div>
 

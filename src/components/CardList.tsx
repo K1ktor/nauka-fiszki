@@ -173,6 +173,11 @@ export default function CardList({ store, version, onChange }: Props) {
                 ) : (
                   <span className={d <= 0 ? "due now" : "due"}>{c.lastReviewed === null ? "nowa" : d < 0 ? "zaległa" : formatInterval(d)}</span>
                 )}
+                {c.avgStars !== null && (
+                  <span className="avg-stars" title={`Średnia z ${c.ratings} ocen`}>
+                    {c.avgStars.toLocaleString("pl-PL", { maximumFractionDigits: 1 })}★
+                  </span>
+                )}
                 <div className="row-actions">
                   <button className="link" onClick={() => setDraft({ id: c.id, question: c.question, answer: c.answer, tags: c.tags.join(", ") })}>edytuj</button>
                 </div>

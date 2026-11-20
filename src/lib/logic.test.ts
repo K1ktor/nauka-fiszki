@@ -128,6 +128,23 @@ describe("baza danych", () => {
     expect(await store.averageStars(T, T)).toEqual({ avg: 3, count: 2 });
     expect((await store.averageStars(addDays(T, -6), T)).avg).toBeCloseTo(11 / 3);
 
+    // Średnia na fiszkę z całej historii ocen i filtr „poniżej X”.
+    const byQ = Object.fromEntries((await store.listCards()).map((k) => [k.question, k]));
+    expect(byQ.C.avgStars).toBe(4.5);
+    expect(byQ.C.ratings).toBe(2);
+    expect(byQ.A.avgStars).toBe(2);
+    expect(byQ.B.avgStars).toBeNull();
+    expect(byQ.B.ratings).toBe(0);
+    const q = async (below: number | null, includeUnrated: boolean) =>
+      (await store.practiceCards([], { below, includeUnrated })).map((k) => k.question).sort();
+    expect(await q(null, false)).toEqual(["A", "C"]);
+    expect(await q(2, true)).toEqual([]); // ściśle poniżej: 2★ już nie wchodzi
+    expect(await q(2.5, true)).toEqual(["A"]);
+    expect(await q(5, true)).toEqual(["A", "C"]);
+    await store.setSuspended([b.id], false);
+    expect(await q(2.5, true)).toEqual(["A", "B"]); // nieoceniona wchodzi
+    expect(await q(2.5, false)).toEqual(["A"]);
+
     await store.deleteCards([a.id, b.id]);
     expect((await store.listCards()).map((k) => k.question)).toEqual(["C"]);
     expect((await store.listTags(T)).map((t) => t.name)).toEqual(["y"]);

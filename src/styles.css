@@ -273,3 +273,9 @@ input[type="checkbox"] { width: 1.1rem; height: 1.1rem; padding: 0; accent-color
 }
 .update-actions { display: flex; gap: 0.5rem; }
 .app-version { font-size: 0.75rem; color: var(--muted); padding: 0 0.6667rem; }
+
+/* Filtr średniej gwiazdek w nauce bez oceny */
+.star-filter { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.5333rem; }
+.star-filter select { width: auto; min-width: 6rem; }
+.star-filter select:disabled { opacity: 0.5; }
+.avg-stars { font-size: 0.8rem; color: var(--star); font-weight: 600; }

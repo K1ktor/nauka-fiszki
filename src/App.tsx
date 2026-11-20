@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Store } from "./lib/db";
+import { NO_STAR_FILTER, StarFilter, Store } from "./lib/db";
 import { isTauri, sqlJsDriver, tauriDriver } from "./lib/drivers";
 import wasmUrl from "sql.js/dist/sql-wasm.wasm?url";
 import Dashboard from "./components/Dashboard";
@@ -36,7 +36,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("dashboard");
   const [studyTags, setStudyTags] = useState<string[]>([]);
-  const [practice, setPractice] = useState<{ tags: string[]; shuffle: boolean }>({ tags: [], shuffle: true });
+  const [practice, setPractice] = useState<{ tags: string[]; shuffle: boolean; stars: StarFilter }>({ tags: [], shuffle: true, stars: NO_STAR_FILTER });
   // Licznik zmian – odświeża widoki po imporcie/ocenie.
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const changeTheme = (t: Theme) => {
@@ -108,14 +108,14 @@ export default function App() {
           <PracticeSetup
             store={store}
             onBack={() => setView("learn")}
-            onStart={(tags, shuffle) => {
-              setPractice({ tags, shuffle });
+            onStart={(tags, shuffle, stars) => {
+              setPractice({ tags, shuffle, stars });
               setView("practice");
             }}
           />
         )}
         {view === "practice" && (
-          <Practice store={store} tags={practice.tags} shuffle={practice.shuffle} onBack={() => setView("practice-setup")} />
+          <Practice store={store} tags={practice.tags} shuffle={practice.shuffle} stars={practice.stars} onBack={() => setView("practice-setup")} />
         )}
         {view === "cards" && <CardList store={store} version={version} onChange={bump} />}
         {view === "import" && <ImportView store={store} onImported={() => { bump(); setView("cards"); }} />}
