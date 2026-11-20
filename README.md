@@ -5,8 +5,9 @@ Desktopowa aplikacja do samodzielnej nauki z fiszkami. Wszystkie dane zostają n
 ## Funkcje
 
 - **Ekran powitalny przy pierwszym uruchomieniu** (tylko na pustej bazie): wybór konta (logowanie Google – wkrótce,
-  albo lokalnie), pierwsze fiszki (kreator lub import CSV) i tempo nauki (nowe fiszki dziennie, docelowa skuteczność).
-- **Kreator fiszek** (zakładka Dodaj fiszki) – dodawanie po jednej: pytanie i odpowiedź obok siebie, `Tab` przechodzi
+  albo lokalnie), motyw (ciemny – domyślny, jasny, systemowy), pierwsze fiszki (import CSV lub kreator) i tempo nauki
+  (nowe fiszki dziennie, docelowa skuteczność).
+- **Kreator fiszek** (zakładka Dodaj fiszki → przycisk „Dodaj ręcznie”, `Esc` wraca do importu) – dodawanie po jednej: pytanie i odpowiedź obok siebie, `Tab` przechodzi
   do odpowiedzi, `Ctrl+Enter` zapisuje i czyści pola pod kolejną fiszkę. Tagi zostają między fiszkami, ostrzeżenie o
   duplikacie od razu przy wpisywaniu, opcja „dodaj też odwrotną” (np. przy słówkach) i lista ostatnio dodanych z
   możliwością poprawienia lub usunięcia.

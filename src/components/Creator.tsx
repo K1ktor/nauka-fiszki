@@ -7,6 +7,10 @@ interface Props {
   store: Store;
   onChange: () => void;
   onDone: () => void;
+  /** Powrót do importu (przycisk i Esc). */
+  onBack: () => void;
+  /** Czy kreator jest widoczny – tylko wtedy Esc wraca do importu. */
+  active: boolean;
 }
 
 /** Fiszka dodana w bieżącej sesji kreatora (najnowsze na górze listy). */
@@ -50,7 +54,7 @@ function loadDraft(): { question: string; answer: string } {
 const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
 const MOD = isMac ? "⌘" : "Ctrl";
 
-export default function Creator({ store, onChange, onDone }: Props) {
+export default function Creator({ store, onChange, onDone, onBack, active }: Props) {
   const initial = useMemo(loadDraft, []);
   const [question, setQuestion] = useState(initial.question);
   const [answer, setAnswer] = useState(initial.answer);
@@ -175,6 +179,20 @@ export default function Creator({ store, onChange, onDone }: Props) {
     if (editing?.id === a.id) stopEdit();
     onChange();
   };
+
+  // Esc poza edycją wraca do importu (edycję Esc tylko anuluje – obsługa niżej ustawia preventDefault).
+  useEffect(() => {
+    if (!active) return;
+    const onEsc = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented) onBack();
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [active, onBack]);
+
+  useEffect(() => {
+    if (active) qRef.current?.focus();
+  }, [active]);
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {

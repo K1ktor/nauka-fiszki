@@ -9,13 +9,6 @@ interface Props {
   onImported: () => void;
 }
 
-const EXAMPLE = `pytanie,odpowiedź,tagi
-Stolica Australii?,Canberra,geografia
-"Co oznacza skrót ""DNA""?",Kwas deoksyrybonukleinowy,biologia
-Ile wynosi pierwiastek z 144?,12,matematyka
-Kto napisał „Pana Tadeusza”?,Adam Mickiewicz,literatura|polski
-`;
-
 export const AI_PROMPT = `Z materiałów, które wkleję poniżej, utwórz fiszki do nauki.
 Zwróć wyłącznie dane CSV – bez komentarzy, nagłówka i bloku kodu – po jednej fiszce w wierszu, w formacie:
 "pytanie","odpowiedź","tagi"
@@ -81,16 +74,6 @@ export default function ImportView({ store, onImported }: Props) {
 
   return (
     <div>
-      <section className="panel">
-        <p>
-          Każdy wiersz to jedna fiszka: <code>pytanie,odpowiedź</code>. Opcjonalnie trzecia kolumna z tagami
-          rozdzielonymi <code>|</code>. Separator (przecinek, średnik lub tabulator) jest wykrywany automatycznie, a
-          pola z przecinkami możesz ująć w cudzysłowy.
-        </p>
-        <pre className="example">{EXAMPLE}</pre>
-        <button className="link" onClick={() => { setText(EXAMPLE); setResult(null); }}>Wstaw przykład do pola poniżej</button>
-      </section>
-
       <section className="panel ai-hint">
         <div className="ai-hint-head">
           <div>
@@ -121,7 +104,9 @@ export default function ImportView({ store, onImported }: Props) {
           <input type="file" accept=".csv,.txt,.tsv,text/csv" onChange={(e) => onFile(e.target.files?.[0])} />
           <span>{fileName ? `📄 ${fileName}` : "Wybierz plik CSV lub przeciągnij go tutaj"}</span>
         </label>
-        <p className="muted small">…albo wklej treść:</p>
+        <p className="muted small">
+          …albo wklej treść. Każdy wiersz to jedna fiszka: <code>pytanie,odpowiedź,tagi</code> (tagi opcjonalne, rozdzielone <code>|</code>).
+        </p>
         <textarea className="paste" value={text} onChange={(e) => { setText(e.target.value); setResult(null); }} placeholder="pytanie,odpowiedź" />
         <label className="inline">
           Dodaj tagi do wszystkich importowanych fiszek:

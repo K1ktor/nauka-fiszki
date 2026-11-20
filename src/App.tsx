@@ -11,7 +11,7 @@ import LearnMenu from "./components/LearnMenu";
 import PracticeSetup from "./components/PracticeSetup";
 import Practice from "./components/Practice";
 import Updater from "./components/Updater";
-import Onboarding from "./components/Onboarding";
+import Onboarding, { GoogleLogo } from "./components/Onboarding";
 import { applyTheme, loadTheme, Theme } from "./lib/theme";
 
 const THEMES: { id: Theme; icon: string; label: string }[] = [
@@ -36,9 +36,10 @@ function navOf(v: View): View {
 export default function App() {
   const [store, setStore] = useState<Store | null>(null);
   const [onboarding, setOnboarding] = useState(false);
+  const [account, setAccount] = useState<"local" | "google">("local");
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("dashboard");
-  const [addMode, setAddMode] = useState<"creator" | "csv">("creator");
+  const [addMode, setAddMode] = useState<"creator" | "csv">("csv");
   const [studyTags, setStudyTags] = useState<string[]>([]);
   const [practice, setPractice] = useState<{ tags: string[]; shuffle: boolean; stars: StarFilter }>({ tags: [], shuffle: true, stars: NO_STAR_FILTER });
   // Licznik zmian – odświeża widoki po imporcie/ocenie.
@@ -50,6 +51,7 @@ export default function App() {
   const [version, setVersion] = useState(0);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const bump = useCallback(() => setVersion((v) => v + 1), []);
+  const backToImport = useCallback(() => setAddMode("csv"), []);
 
   useEffect(() => {
     if (isTauri()) import("@tauri-apps/api/app").then((m) => m.getVersion()).then(setAppVersion).catch(() => {});
@@ -62,6 +64,7 @@ export default function App() {
         const s = new Store(driver);
         await s.init();
         setOnboarding(await s.needsOnboarding());
+        setAccount(await s.getAccount());
         setStore(s);
       } catch (e) {
         setError(String(e));
@@ -76,6 +79,8 @@ export default function App() {
     return (
       <Onboarding
         store={store}
+        theme={theme}
+        onTheme={changeTheme}
         onDone={(first) => {
           setOnboarding(false);
           bump();
@@ -101,11 +106,19 @@ export default function App() {
         </div>
         <nav>
           {NAV.map((n) => (
-            <button key={n.id} className={navOf(view) === n.id ? "nav active" : "nav"} onClick={() => setView(n.id)}>
+            <button key={n.id} className={navOf(view) === n.id ? "nav active" : "nav"} onClick={() => { setView(n.id); if (n.id === "import") setAddMode("csv"); }}>
               {n.label}
             </button>
           ))}
         </nav>
+        {account !== "google" && (
+          <div className="login-box">
+            <button className="login-btn" disabled title="Logowanie przez Google będzie dostępne wkrótce">
+              <GoogleLogo /> Zaloguj się
+            </button>
+            <span className="small muted">Kopia fiszek w chmurze · wkrótce</span>
+          </div>
+        )}
         <div className="theme-switch" role="radiogroup" aria-label="Motyw">
           {THEMES.map((t) => (
             <button key={t.id} className={theme === t.id ? "on" : ""} title={t.label} aria-label={t.label} aria-checked={theme === t.id} role="radio" onClick={() => changeTheme(t.id)}>
@@ -114,6 +127,9 @@ export default function App() {
           ))}
         </div>
         {!isTauri() && <div className="hint">Tryb przeglądarki: dane w localStorage</div>}
+        <button className="link app-version" onClick={() => setOnboarding(true)} title="Otwórz ponownie ekran powitalny (fiszki i ustawienia zostają)">
+          Ekran powitalny
+        </button>
         {appVersion && <div className="app-version">Wersja {appVersion}</div>}
       </aside>
       <main className="content">
@@ -142,19 +158,23 @@ export default function App() {
         {view === "import" && (
           <div>
             <div className="panel-head add-head">
-              <h1>Dodaj fiszki</h1>
-              <div className="segmented" role="tablist" aria-label="Sposób dodawania">
-                <button role="tab" aria-selected={addMode === "creator"} className={addMode === "creator" ? "on" : ""} onClick={() => setAddMode("creator")}>
-                  ✍️ Kreator
-                </button>
-                <button role="tab" aria-selected={addMode === "csv"} className={addMode === "csv" ? "on" : ""} onClick={() => setAddMode("csv")}>
-                  📄 Import CSV
-                </button>
-              </div>
+              {addMode === "creator" ? (
+                <>
+                  <h1>Dodaj ręcznie</h1>
+                  <button onClick={() => setAddMode("csv")} title="Wróć do importu CSV (Esc)">
+                    ← Powrót <kbd className="plain">Esc</kbd>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h1>Dodaj fiszki</h1>
+                  <button className="primary" onClick={() => setAddMode("creator")}>✍️ Dodaj ręcznie</button>
+                </>
+              )}
             </div>
-            {/* Kreator zostaje zamontowany, żeby lista „Dodane teraz” nie znikała po zajrzeniu do importu. */}
+            {/* Kreator zostaje zamontowany, żeby lista „Dodane teraz” nie znikała po powrocie do importu. */}
             <div hidden={addMode !== "creator"}>
-              <Creator store={store} onChange={bump} onDone={() => setView("cards")} />
+              <Creator store={store} onChange={bump} onDone={() => setView("cards")} onBack={backToImport} active={addMode === "creator"} />
             </div>
             {addMode === "csv" && <ImportView store={store} onImported={() => { bump(); setView("cards"); }} />}
           </div>

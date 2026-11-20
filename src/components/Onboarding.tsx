@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DEFAULT_SETTINGS, Store } from "../lib/db";
 import { MAX_RETENTION, MIN_RETENTION } from "../lib/scheduler";
+import { Theme } from "../lib/theme";
 
 export type FirstStep = "creator" | "csv" | null;
 
@@ -8,12 +9,42 @@ interface Props {
   store: Store;
   /** Koniec powitania; `first` – co użytkownik wybrał na drugim slajdzie (null = pominął). */
   onDone: (first: FirstStep) => void;
+  theme: Theme;
+  onTheme: (t: Theme) => void;
+}
+
+const THEME_OPTIONS: { id: Theme; label: string; desc: string }[] = [
+  { id: "dark", label: "Ciemny", desc: "Ciemne tło, łagodne dla oczu wieczorem." },
+  { id: "light", label: "Jasny", desc: "Jasne tło, dobre za dnia." },
+  { id: "system", label: "Systemowy", desc: "Jak w ustawieniach Windowsa." },
+];
+
+/** Miniatura okna aplikacji w danym motywie. */
+function ThemePreview({ id }: { id: Theme }) {
+  if (id === "system") {
+    // Pół na pół: jasny i ciemny, przecięte po skosie.
+    return (
+      <span className="theme-preview system" aria-hidden="true">
+        <ThemePreview id="light" />
+        <ThemePreview id="dark" />
+      </span>
+    );
+  }
+  return (
+    <span className={`theme-preview ${id}`} aria-hidden="true">
+      <span className="tp-side" />
+      <span className="tp-main">
+        <span className="tp-line w60" />
+        <span className="tp-card"><span className="tp-line w80" /><span className="tp-line w50" /></span>
+      </span>
+    </span>
+  );
 }
 
 const NEW_MAX = 100; // pozycja suwaka „bez limitu”
 const NEW_DEFAULT = 20;
 
-function GoogleLogo() {
+export function GoogleLogo() {
   return (
     <svg className="ai-logo" viewBox="0 0 24 24" aria-hidden="true">
       <path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.67-.22-2.45H12v4.63h6.46a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.27-2.09 3.56-5.17 3.56-8.8z" />
@@ -24,7 +55,7 @@ function GoogleLogo() {
   );
 }
 
-export default function Onboarding({ store, onDone }: Props) {
+export default function Onboarding({ store, onDone, theme, onTheme }: Props) {
   const [step, setStep] = useState(0);
   const [first, setFirst] = useState<FirstStep>(null);
   const [newPerDay, setNewPerDay] = useState(NEW_DEFAULT);
@@ -40,14 +71,14 @@ export default function Onboarding({ store, onDone }: Props) {
 
   const pick = (c: FirstStep) => {
     setFirst(c);
-    setStep(2);
+    setStep(3);
   };
 
   return (
     <div className="onboarding">
       <div className="onb-card">
-        <div className="onb-dots" aria-label={`Krok ${step + 1} z 3`}>
-          {[0, 1, 2].map((i) => (
+        <div className="onb-dots" aria-label={`Krok ${step + 1} z 4`}>
+          {[0, 1, 2, 3].map((i) => (
             <span key={i} className={i === step ? "on" : i < step ? "done" : ""} />
           ))}
         </div>
@@ -57,16 +88,18 @@ export default function Onboarding({ store, onDone }: Props) {
             <div className="onb-mark">◆</div>
             <h1>Witaj w Fiszkach</h1>
             <p className="muted">Ucz się z fiszek, oceniaj się gwiazdkami, a algorytm powtórek zaplanuje resztę.</p>
-            <div className="onb-choices">
-              <div className="onb-choice-wrap">
-                <span className="onb-badge">Zalecane</span>
-                <button className="onb-choice google" disabled title="Logowanie przez Google będzie dostępne wkrótce">
-                  <GoogleLogo /> Zaloguj przez Google
-                  <span className="onb-soon">wkrótce</span>
-                </button>
-              </div>
-              <button className="onb-choice primary" onClick={() => setStep(1)}>
-                💻 Kontynuuj lokalnie
+            <div className="onb-options">
+              <button className="onb-option recommended" disabled title="Logowanie przez Google będzie dostępne wkrótce">
+                <span className="onb-badge onb-option-badge">Zalecane</span>
+                <span className="onb-option-icon"><GoogleLogo /></span>
+                <b>Zaloguj przez Google</b>
+                <span className="muted small">Fiszki w chmurze, dostępne na każdym urządzeniu.</span>
+                <span className="onb-soon">wkrótce</span>
+              </button>
+              <button className="onb-option" onClick={() => setStep(1)}>
+                <span className="onb-option-icon">💻</span>
+                <b>Kontynuuj lokalnie</b>
+                <span className="muted small">Bez konta. Fiszki zostają tylko na tym komputerze.</span>
               </button>
             </div>
             <p className="muted small onb-note">
@@ -78,28 +111,58 @@ export default function Onboarding({ store, onDone }: Props) {
 
         {step === 1 && (
           <div className="onb-step">
-            <h1>Dodaj pierwsze fiszki</h1>
-            <p className="muted">Wybierz, jak chcesz zacząć. Później znajdziesz obie opcje w zakładce „Dodaj fiszki”.</p>
-            <div className="onb-options">
-              <button className="onb-option" onClick={() => pick("creator")}>
-                <span className="onb-option-icon">✍️</span>
-                <b>Dodaj w kreatorze</b>
-                <span className="muted small">Wpisujesz pytanie i odpowiedź, jedna fiszka po drugiej.</span>
-              </button>
-              <button className="onb-option" onClick={() => pick("csv")}>
-                <span className="onb-option-icon">📄</span>
-                <b>Zaimportuj z CSV</b>
-                <span className="muted small">Masz już plik albo chcesz go wygenerować z notatek przez ChatGPT lub Claude.</span>
-              </button>
+            <h1>Wybierz motyw</h1>
+            <p className="muted">Zmienisz go później przełącznikiem na dole paska bocznego.</p>
+            <div className="onb-options three" role="radiogroup" aria-label="Motyw">
+              {THEME_OPTIONS.map((t) => (
+                <button
+                  key={t.id}
+                  role="radio"
+                  aria-checked={theme === t.id}
+                  className={theme === t.id ? "onb-option selected" : "onb-option"}
+                  onClick={() => onTheme(t.id)}
+                >
+                  <ThemePreview id={t.id} />
+                  <b>{t.label}</b>
+                  <span className="muted small">{t.desc}</span>
+                </button>
+              ))}
             </div>
             <div className="onb-nav">
               <button className="link" onClick={() => setStep(0)}>← Wstecz</button>
-              <button onClick={() => pick(null)}>Pomiń</button>
+              <div className="onb-nav-right">
+                <button onClick={() => setStep(2)}>Pomiń</button>
+                <button className="primary" onClick={() => setStep(2)}>Dalej →</button>
+              </div>
             </div>
           </div>
         )}
 
         {step === 2 && (
+          <div className="onb-step">
+            <h1>Dodaj pierwsze fiszki</h1>
+            <p className="muted">Wybierz, jak chcesz zacząć. Później znajdziesz obie opcje w zakładce „Dodaj fiszki”.</p>
+            <div className="onb-options">
+              <button className="onb-option recommended" onClick={() => pick("csv")}>
+                <span className="onb-badge onb-option-badge">Zalecane</span>
+                <span className="onb-option-icon">📄</span>
+                <b>Zaimportuj z CSV</b>
+                <span className="muted small">Masz już plik albo chcesz go wygenerować z notatek przez ChatGPT lub Claude.</span>
+              </button>
+              <button className="onb-option" onClick={() => pick("creator")}>
+                <span className="onb-option-icon">✍️</span>
+                <b>Dodaj w kreatorze</b>
+                <span className="muted small">Wpisujesz pytanie i odpowiedź, jedna fiszka po drugiej.</span>
+              </button>
+            </div>
+            <div className="onb-nav">
+              <button className="link" onClick={() => setStep(1)}>← Wstecz</button>
+              <button onClick={() => pick(null)}>Pomiń</button>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
           <div className="onb-step">
             <h1>Ustaw tempo nauki</h1>
             <p className="muted">Możesz to zmienić w każdej chwili w zakładce „Nauka”.</p>
@@ -139,7 +202,7 @@ export default function Onboarding({ store, onDone }: Props) {
             </div>
 
             <div className="onb-nav">
-              <button className="link" onClick={() => setStep(1)}>← Wstecz</button>
+              <button className="link" onClick={() => setStep(2)}>← Wstecz</button>
               <div className="onb-nav-right">
                 <button onClick={() => finish(false)}>Pomiń</button>
                 <button className="primary" onClick={() => finish(true)}>Zaczynamy →</button>
