@@ -17,6 +17,7 @@ const THEME_OPTIONS: { id: Theme; label: string; desc: string }[] = [
   { id: "dark", label: "Ciemny", desc: "Ciemne tło, łagodne dla oczu wieczorem." },
   { id: "light", label: "Jasny", desc: "Jasne tło, dobre za dnia." },
   { id: "system", label: "Systemowy", desc: "Jak w ustawieniach Windowsa." },
+  { id: "violet", label: "Fioletowy", desc: "Ciemny z fioletową poświatą." },
 ];
 
 /** Miniatura okna aplikacji w danym motywie. */
@@ -121,7 +122,7 @@ export default function Onboarding({ store, onDone, theme, onTheme }: Props) {
           <div className="onb-step">
             <h1>Wybierz motyw</h1>
             <p className="muted">Zmienisz go później przełącznikiem na dole paska bocznego.</p>
-            <div className="onb-options three" role="radiogroup" aria-label="Motyw">
+            <div className="onb-options four" role="radiogroup" aria-label="Motyw">
               {THEME_OPTIONS.map((t) => (
                 <button
                   key={t.id}

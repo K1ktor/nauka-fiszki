@@ -13,20 +13,22 @@ import Practice from "./components/Practice";
 import Updater from "./components/Updater";
 import Onboarding, { GoogleLogo } from "./components/Onboarding";
 import { applyTheme, loadTheme, Theme } from "./lib/theme";
+import { House, Layers, LucideIcon, Monitor, Moon, Play, Plus, Sparkles, Sun } from "lucide-react";
 
-const THEMES: { id: Theme; icon: string; label: string }[] = [
-  { id: "system", icon: "🖥", label: "Motyw systemowy" },
-  { id: "light", icon: "☀️", label: "Jasny motyw" },
-  { id: "dark", icon: "🌙", label: "Ciemny motyw" },
+const THEMES: { id: Theme; icon: LucideIcon; label: string }[] = [
+  { id: "system", icon: Monitor, label: "Motyw systemowy" },
+  { id: "light", icon: Sun, label: "Jasny motyw" },
+  { id: "dark", icon: Moon, label: "Ciemny motyw" },
+  { id: "violet", icon: Sparkles, label: "Motyw fioletowy" },
 ];
 
 export type View = "dashboard" | "learn" | "study" | "practice-setup" | "practice" | "cards" | "import";
 
-const NAV: { id: View; label: string }[] = [
-  { id: "dashboard", label: "Dziś" },
-  { id: "learn", label: "Nauka" },
-  { id: "cards", label: "Fiszki" },
-  { id: "import", label: "Dodaj fiszki" },
+const NAV: { id: View; label: string; icon: LucideIcon }[] = [
+  { id: "dashboard", label: "Dziś", icon: House },
+  { id: "learn", label: "Nauka", icon: Play },
+  { id: "cards", label: "Fiszki", icon: Layers },
+  { id: "import", label: "Dodaj fiszki", icon: Plus },
 ];
 
 function navOf(v: View): View {
@@ -102,11 +104,12 @@ export default function App() {
     <div className="app">
       <aside className="sidebar">
         <div className="logo">
-          <span className="logo-mark">◆</span> Fiszki
+          <Layers className="logo-mark" aria-hidden="true" /> Fiszki
         </div>
         <nav>
           {NAV.map((n) => (
             <button key={n.id} className={navOf(view) === n.id ? "nav active" : "nav"} onClick={() => { setView(n.id); if (n.id === "import") setAddMode("csv"); }}>
+              <n.icon className="nav-icon" aria-hidden="true" />
               {n.label}
             </button>
           ))}
@@ -122,7 +125,7 @@ export default function App() {
         <div className="theme-switch" role="radiogroup" aria-label="Motyw">
           {THEMES.map((t) => (
             <button key={t.id} className={theme === t.id ? "on" : ""} title={t.label} aria-label={t.label} aria-checked={theme === t.id} role="radio" onClick={() => changeTheme(t.id)}>
-              {t.icon}
+              <t.icon className="ts-icon" aria-hidden="true" />
             </button>
           ))}
         </div>

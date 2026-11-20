@@ -39,7 +39,9 @@ Desktopowa aplikacja do samodzielnej nauki z fiszkami. Wszystkie dane zostają n
   (np. poniżej 2★), żeby pomijać to, co już umiesz; fiszki jeszcze nieocenione można włączyć lub wyłączyć.
 - **Średnia gwiazdek każdej fiszki** – liczona z całej historii ocen (widoczna na liście Fiszki).
 - Płynne przejścia między zakładkami (wyłączane przy systemowym „ograniczeniu ruchu”).
-- **Motyw jasny / ciemny / systemowy** – przełącznik na dole paska bocznego, wybór jest zapamiętywany.
+- **Motyw jasny / ciemny / systemowy / fioletowy** – przełącznik na dole paska bocznego, wybór jest zapamiętywany.
+  Fioletowy: ciemne tło z fioletową poświatą, gradientowe przyciski, stos kart na ekranie „Dziś” i plakietka serii.
+  We wszystkich motywach ikony [Lucide](https://lucide.dev) w menu i na panelach.
 
 ## Jak działa algorytm powtórek
 
