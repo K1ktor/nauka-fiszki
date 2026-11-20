@@ -388,3 +388,5 @@ kbd.plain { margin: 0; background: var(--surface-2); border: 1px solid var(--bor
 .theme-preview.system > .theme-preview { position: absolute; inset: 0; margin: 0; max-width: none; }
 .theme-preview.system > .theme-preview.dark { clip-path: polygon(58% 0, 100% 0, 100% 100%, 42% 100%); }
 @media (max-width: 560px) { .onb-options.three { grid-template-columns: 1fr; } }
+button.link.app-version { text-align: left; color: var(--muted); }
+button.link.app-version:hover { color: var(--accent); }

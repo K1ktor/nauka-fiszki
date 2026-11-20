@@ -117,6 +117,9 @@ export default function App() {
           ))}
         </div>
         {!isTauri() && <div className="hint">Tryb przeglądarki: dane w localStorage</div>}
+        <button className="link app-version" onClick={() => setOnboarding(true)} title="Otwórz ponownie ekran powitalny (fiszki i ustawienia zostają)">
+          Ekran powitalny
+        </button>
         {appVersion && <div className="app-version">Wersja {appVersion}</div>}
       </aside>
       <main className="content">
