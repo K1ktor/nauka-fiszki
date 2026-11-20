@@ -2,6 +2,8 @@
 # z którego aplikacja sama pobiera aktualizacje.
 # Uruchamia się po wypchnięciu gałęzi "wydanie" (git push origin main:wydanie)
 # albo tagu (git tag v0.4.0 && git push origin v0.4.0). Tag v<wersja> tworzy się sam.
+# Ręczne uruchomienie na innej gałęzi niż main = wersja testowa: prywatny szkic wydania
+# (widoczny tylko dla właściciela repo), bez latest.json, więc aktualizator go nie zaproponuje.
 name: Wydanie
 
 on:
@@ -9,6 +11,9 @@ on:
     branches: [wydanie]
     tags: ["v*"]
   workflow_dispatch:
+
+env:
+  TESTOWA: ${{ github.event_name == 'workflow_dispatch' && github.ref_name != 'main' }}
 
 permissions:
   contents: write
@@ -40,11 +45,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         with:
-          tagName: v__VERSION__
-          releaseName: "Fiszki v__VERSION__"
-          releaseBody: "Zainstalowana aplikacja zaproponuje tę wersję sama przy następnym uruchomieniu. Pierwsza instalacja: pobierz plik Fiszki_..._x64-setup.exe poniżej."
-          releaseDraft: false
-          prerelease: false
-          includeUpdaterJson: true
+          tagName: "${{ env.TESTOWA == 'true' && format('test-v__VERSION__-{0}', github.run_number) || 'v__VERSION__' }}"
+          releaseName: "${{ env.TESTOWA == 'true' && format('Fiszki v__VERSION__ – wersja testowa {0} ({1})', github.run_number, github.ref_name) || 'Fiszki v__VERSION__' }}"
+          releaseBody: "${{ env.TESTOWA == 'true' && 'Prywatna wersja testowa (szkic). Nie trafia do automatycznych aktualizacji. Pobierz Fiszki_..._x64-setup.exe i zainstaluj ręcznie.' || 'Zainstalowana aplikacja zaproponuje tę wersję sama przy następnym uruchomieniu. Pierwsza instalacja: pobierz plik Fiszki_..._x64-setup.exe poniżej.' }}"
+          releaseDraft: ${{ env.TESTOWA == 'true' }}
+          prerelease: ${{ env.TESTOWA == 'true' }}
+          includeUpdaterJson: ${{ env.TESTOWA != 'true' }}
           updaterJsonPreferNsis: true
           args: --bundles nsis
