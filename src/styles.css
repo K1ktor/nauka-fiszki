@@ -336,12 +336,12 @@ kbd.plain { margin: 0; background: var(--surface-2); border: 1px solid var(--bor
 
 /* Ekran powitalny (pierwsze uruchomienie) */
 .onboarding { min-height: 100vh; display: grid; place-items: center; padding: 2rem 1rem; background: var(--bg); box-sizing: border-box; }
-.onb-card { width: 100%; max-width: 38rem; background: var(--surface); border: 1px solid var(--border); border-radius: calc(var(--radius) * 1.4); padding: 2.4rem 2.6rem; box-shadow: 0 0.6rem 2.4rem rgba(0,0,0,0.06); box-sizing: border-box; }
+.onb-card { width: 100%; max-width: 38rem; min-height: var(--onb-h, 34rem); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: calc(var(--radius) * 1.4); padding: 2.4rem 2.6rem; box-shadow: 0 0.6rem 2.4rem rgba(0,0,0,0.06); box-sizing: border-box; }
 .onb-dots { display: flex; justify-content: center; gap: 0.4rem; margin-bottom: 1.6rem; }
 .onb-dots span { width: 0.5rem; height: 0.5rem; border-radius: 1rem; background: var(--border); transition: width 0.2s; }
 .onb-dots span.done { background: var(--accent-soft); }
 .onb-dots span.on { width: 1.6rem; background: var(--accent); }
-.onb-step { display: flex; flex-direction: column; text-align: center; }
+.onb-step { display: flex; flex-direction: column; text-align: center; flex: 1; }
 .onb-step h1 { margin-bottom: 0.5rem; }
 .onb-step > p.muted { margin: 0 0 1.6rem; }
 .onb-mark { font-size: 2.4rem; color: var(--accent); line-height: 1; margin-bottom: 0.8rem; }
@@ -356,7 +356,7 @@ kbd.plain { margin: 0; background: var(--surface-2); border: 1px solid var(--bor
 .onb-option { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; padding: 1.4rem 1rem; text-align: center; line-height: 1.4; }
 .onb-option:hover { border-color: var(--accent); background: var(--accent-soft); }
 .onb-option-icon { font-size: 1.8rem; }
-.onb-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 1.6rem; }
+.onb-nav { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 1.6rem; }
 .onb-nav-right { display: flex; gap: 0.6rem; }
 .onb-slider { text-align: left; margin-bottom: 1.2rem; }
 .onb-slider-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.4rem; }
@@ -395,3 +395,12 @@ button.link.app-version:hover { color: var(--accent); }
 .login-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; font-weight: 600; width: 100%; }
 .login-btn .ai-logo { width: 1.05rem; height: 1.05rem; }
 .login-box .small { font-size: 0.75rem; text-align: center; }
+
+/* Wspólna wysokość slajdów i płynne przejścia */
+.onb-stage { flex: 1; display: flex; flex-direction: column; animation: onb-in-next 0.38s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.onb-stage[data-dir="back"] { animation-name: onb-in-back; }
+@keyframes onb-in-next { from { opacity: 0; transform: translateX(2.2rem); } to { opacity: 1; transform: none; } }
+@keyframes onb-in-back { from { opacity: 0; transform: translateX(-2.2rem); } to { opacity: 1; transform: none; } }
+.onb-dots span { transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.35s; }
+.onboarding .onb-card { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .onb-stage { animation-duration: 0.01s; } }

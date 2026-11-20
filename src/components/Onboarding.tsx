@@ -57,6 +57,12 @@ export function GoogleLogo() {
 
 export default function Onboarding({ store, onDone, theme, onTheme }: Props) {
   const [step, setStep] = useState(0);
+  // Kierunek animacji: dalej = wjazd z prawej, wstecz = z lewej.
+  const [dir, setDir] = useState<"next" | "back">("next");
+  const go = (n: number) => {
+    setDir(n >= step ? "next" : "back");
+    setStep(n);
+  };
   const [first, setFirst] = useState<FirstStep>(null);
   const [newPerDay, setNewPerDay] = useState(NEW_DEFAULT);
   const [retention, setRetention] = useState(Math.round(DEFAULT_SETTINGS.retention * 100));
@@ -71,7 +77,7 @@ export default function Onboarding({ store, onDone, theme, onTheme }: Props) {
 
   const pick = (c: FirstStep) => {
     setFirst(c);
-    setStep(3);
+    go(3);
   };
 
   return (
@@ -83,6 +89,8 @@ export default function Onboarding({ store, onDone, theme, onTheme }: Props) {
           ))}
         </div>
 
+        {/* key = krok: przy każdej zmianie slajd montuje się od nowa i odgrywa animację wejścia. */}
+        <div className="onb-stage" key={step} data-dir={dir}>
         {step === 0 && (
           <div className="onb-step">
             <div className="onb-mark">◆</div>
@@ -96,7 +104,7 @@ export default function Onboarding({ store, onDone, theme, onTheme }: Props) {
                 <span className="muted small">Fiszki w chmurze, dostępne na każdym urządzeniu.</span>
                 <span className="onb-soon">wkrótce</span>
               </button>
-              <button className="onb-option" onClick={() => setStep(1)}>
+              <button className="onb-option" onClick={() => go(1)}>
                 <span className="onb-option-icon">💻</span>
                 <b>Kontynuuj lokalnie</b>
                 <span className="muted small">Bez konta. Fiszki zostają tylko na tym komputerze.</span>
@@ -129,10 +137,10 @@ export default function Onboarding({ store, onDone, theme, onTheme }: Props) {
               ))}
             </div>
             <div className="onb-nav">
-              <button className="link" onClick={() => setStep(0)}>← Wstecz</button>
+              <button className="link" onClick={() => go(0)}>← Wstecz</button>
               <div className="onb-nav-right">
-                <button onClick={() => setStep(2)}>Pomiń</button>
-                <button className="primary" onClick={() => setStep(2)}>Dalej →</button>
+                <button onClick={() => go(2)}>Pomiń</button>
+                <button className="primary" onClick={() => go(2)}>Dalej →</button>
               </div>
             </div>
           </div>
@@ -156,7 +164,7 @@ export default function Onboarding({ store, onDone, theme, onTheme }: Props) {
               </button>
             </div>
             <div className="onb-nav">
-              <button className="link" onClick={() => setStep(1)}>← Wstecz</button>
+              <button className="link" onClick={() => go(1)}>← Wstecz</button>
               <button onClick={() => pick(null)}>Pomiń</button>
             </div>
           </div>
@@ -202,7 +210,7 @@ export default function Onboarding({ store, onDone, theme, onTheme }: Props) {
             </div>
 
             <div className="onb-nav">
-              <button className="link" onClick={() => setStep(2)}>← Wstecz</button>
+              <button className="link" onClick={() => go(2)}>← Wstecz</button>
               <div className="onb-nav-right">
                 <button onClick={() => finish(false)}>Pomiń</button>
                 <button className="primary" onClick={() => finish(true)}>Zaczynamy →</button>
@@ -210,6 +218,7 @@ export default function Onboarding({ store, onDone, theme, onTheme }: Props) {
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
