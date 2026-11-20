@@ -25,17 +25,20 @@ Desktopowa aplikacja do samodzielnej nauki z fiszkami. Wszystkie dane zostają n
   Powtórki już poznanych fiszek nie mają limitu.
 - **Wpisywanie odpowiedzi** (opcjonalne, przełącznik w zakładce Nauka) – przed odsłonięciem wpisujesz odpowiedź,
   potem widzisz ją obok poprawnej z oznaczeniem: zgadza się / prawie (np. brak polskich znaków) / inaczej.
-- **Streak** – seria dni z rzędu z co najmniej jedną powtórką, rekord, ostrzeżenie gdy dziś jeszcze nie było nauki,
-  kalendarz aktywności z ostatnich 18 tygodni.
+- **Ekran „Dziś”** – plan na dziś z pierścieniem postępu i szacowanym czasem („Zostało 24 fiszki · ok. 6 min”),
+  seria dni z rzędu z rekordem i małą szachownicą aktywności z ostatnich 4 tygodni, panel **Postęp**
+  (opanowane / w nauce / nowe, przyrost opanowanych w tym tygodniu, średnia ocen z 7 dni) i prognoza na 7 dni.
+  Przy wielu tagach widać 6 z największą liczbą fiszek na dziś, resztę po rozwinięciu z wyszukiwarką.
+- **Streak** – seria dni z rzędu z co najmniej jedną powtórką, rekord, ostrzeżenie gdy dziś jeszcze nie było nauki.
 - **Tagi/kategorie** – filtrowanie nauki i listy fiszek po tagach, edycja tagów na fiszce.
-- Prognoza liczby powtórek na najbliższe 7 dni, wyszukiwarka, dodawanie/edycja/usuwanie fiszek.
+- Wyszukiwarka, dodawanie/edycja/usuwanie fiszek.
 - **Zaznaczanie wielu fiszek** – „Zaznacz wszystkie” (w obrębie bieżącego filtra), usuwanie i **usypianie** zaznaczonych.
   Uśpione fiszki nie pojawiają się w żadnej sesji nauki; można je obudzić (filtr „Uśpione”).
 - **Nauka bez oceny** – w zakładce Nauka: wybór tagów (domyślnie „Wszystko”), przeglądanie fiszek bez gwiazdek,
   bez wpływu na terminy powtórek, serię i statystyki. Opcjonalnie tylko fiszki ze **średnią gwiazdek poniżej progu**
   (np. poniżej 2★), żeby pomijać to, co już umiesz; fiszki jeszcze nieocenione można włączyć lub wyłączyć.
 - **Średnia gwiazdek każdej fiszki** – liczona z całej historii ocen (widoczna na liście Fiszki).
-- **Średnia ocen** na ekranie głównym: z dziś i z ostatnich 7 dni.
+- Płynne przejścia między zakładkami (wyłączane przy systemowym „ograniczeniu ruchu”).
 - **Motyw jasny / ciemny / systemowy** – przełącznik na dole paska bocznego, wybór jest zapamiętywany.
 
 ## Jak działa algorytm powtórek
@@ -153,6 +156,7 @@ src/
   lib/scheduler.ts   algorytm powtórek (SM-2 na 1–5 gwiazdek)
   lib/csv.ts         parser CSV
   lib/streak.ts      liczenie serii dni
+  lib/progress.ts    postęp opanowania, tempo nauki, ostatnie tygodnie
   lib/db.ts          schemat SQLite i operacje na danych
   lib/drivers.ts     SQLite przez Tauri (desktop) lub sql.js (przeglądarka/testy)
   components/        Dashboard, Study (nauka), CardList (fiszki), ImportView

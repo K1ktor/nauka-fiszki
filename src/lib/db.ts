@@ -1,5 +1,6 @@
 import { DayString, diffDays, toDay } from "./dates";
 import { ParsedCard, normalizeTag } from "./csv";
+import type { ReviewRow } from "./progress";
 import { clampRetention, DEFAULT_RETENTION, replay, SchedulingState, Stars, initialState, review } from "./scheduler";
 
 /** Minimalny interfejs bazy SQL – realizowany przez Tauri (SQLite na dysku) lub sql.js (przeglądarka/testy). */
@@ -376,6 +377,23 @@ export class Store {
       `SELECT review_day AS d, COUNT(*) AS n FROM reviews GROUP BY review_day`,
     );
     return Object.fromEntries(rows.map((r) => [r.d, Number(r.n)]));
+  }
+
+  /** Wszystkie oceny (do odtworzenia postępu sprzed tygodnia). */
+  async reviewHistory(): Promise<ReviewRow[]> {
+    const rows = await this.db.select<{ card_id: number; review_day: string; stars: number }>(
+      `SELECT card_id, review_day, stars FROM reviews ORDER BY reviewed_at, id`,
+    );
+    return rows.map((r) => ({ cardId: Number(r.card_id), day: r.review_day, stars: Number(r.stars) as Stars }));
+  }
+
+  /** Znaczniki czasu ostatnich ocen (do oszacowania tempa nauki). */
+  async recentReviewTimes(limit = 500): Promise<string[]> {
+    const rows = await this.db.select<{ t: string }>(
+      `SELECT reviewed_at AS t FROM reviews ORDER BY reviewed_at DESC LIMIT $1`,
+      [limit],
+    );
+    return rows.map((r) => r.t);
   }
 
   /** Ile kart przypada na kolejne dni (prognoza). Nowe fiszki liczone dziś, w ramach dziennego limitu. */
