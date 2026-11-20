@@ -57,16 +57,18 @@ export default function Onboarding({ store, onDone }: Props) {
             <div className="onb-mark">◆</div>
             <h1>Witaj w Fiszkach</h1>
             <p className="muted">Ucz się z fiszek, oceniaj się gwiazdkami, a algorytm powtórek zaplanuje resztę.</p>
-            <div className="onb-choices">
-              <div className="onb-choice-wrap">
-                <span className="onb-badge">Zalecane</span>
-                <button className="onb-choice google" disabled title="Logowanie przez Google będzie dostępne wkrótce">
-                  <GoogleLogo /> Zaloguj przez Google
-                  <span className="onb-soon">wkrótce</span>
-                </button>
-              </div>
-              <button className="onb-choice primary" onClick={() => setStep(1)}>
-                💻 Kontynuuj lokalnie
+            <div className="onb-options">
+              <button className="onb-option recommended" disabled title="Logowanie przez Google będzie dostępne wkrótce">
+                <span className="onb-badge onb-option-badge">Zalecane</span>
+                <span className="onb-option-icon"><GoogleLogo /></span>
+                <b>Zaloguj przez Google</b>
+                <span className="muted small">Fiszki w chmurze, dostępne na każdym urządzeniu.</span>
+                <span className="onb-soon">wkrótce</span>
+              </button>
+              <button className="onb-option" onClick={() => setStep(1)}>
+                <span className="onb-option-icon">💻</span>
+                <b>Kontynuuj lokalnie</b>
+                <span className="muted small">Bez konta. Fiszki zostają tylko na tym komputerze.</span>
               </button>
             </div>
             <p className="muted small onb-note">
@@ -81,15 +83,16 @@ export default function Onboarding({ store, onDone }: Props) {
             <h1>Dodaj pierwsze fiszki</h1>
             <p className="muted">Wybierz, jak chcesz zacząć. Później znajdziesz obie opcje w zakładce „Dodaj fiszki”.</p>
             <div className="onb-options">
+              <button className="onb-option recommended" onClick={() => pick("csv")}>
+                <span className="onb-badge onb-option-badge">Zalecane</span>
+                <span className="onb-option-icon">📄</span>
+                <b>Zaimportuj z CSV</b>
+                <span className="muted small">Masz już plik albo chcesz go wygenerować z notatek przez ChatGPT lub Claude.</span>
+              </button>
               <button className="onb-option" onClick={() => pick("creator")}>
                 <span className="onb-option-icon">✍️</span>
                 <b>Dodaj w kreatorze</b>
                 <span className="muted small">Wpisujesz pytanie i odpowiedź, jedna fiszka po drugiej.</span>
-              </button>
-              <button className="onb-option" onClick={() => pick("csv")}>
-                <span className="onb-option-icon">📄</span>
-                <b>Zaimportuj z CSV</b>
-                <span className="muted small">Masz już plik albo chcesz go wygenerować z notatek przez ChatGPT lub Claude.</span>
               </button>
             </div>
             <div className="onb-nav">
