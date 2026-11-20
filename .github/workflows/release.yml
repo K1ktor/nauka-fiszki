@@ -1,10 +1,12 @@
 # Buduje instalator Windows i publikuje wydanie na GitHub Releases razem z latest.json,
 # z którego aplikacja sama pobiera aktualizacje.
-# Uruchamia się po wypchnięciu tagu, np.: git tag v0.3.0 && git push origin v0.3.0
+# Uruchamia się po wypchnięciu gałęzi "wydanie" (git push origin main:wydanie)
+# albo tagu (git tag v0.4.0 && git push origin v0.4.0). Tag v<wersja> tworzy się sam.
 name: Wydanie
 
 on:
   push:
+    branches: [wydanie]
     tags: ["v*"]
   workflow_dispatch:
 

@@ -107,12 +107,12 @@ zainstalowane aplikacje nie przyjmą kolejnych aktualizacji.
 ### Jak wydać nową wersję
 
 1. Podnieś numer wersji w `package.json`, `src-tauri/tauri.conf.json` i `src-tauri/Cargo.toml` (np. 0.3.0 → 0.4.0).
-2. Zatwierdź zmiany i wypchnij tag:
+2. Zatwierdź zmiany i wypchnij je na gałąź `wydanie`:
    ```bash
    git commit -am "Wersja 0.4.0"
-   git tag v0.4.0
-   git push && git push origin v0.4.0
+   git push && git push origin main:wydanie
    ```
+   (Zamiast tego można też wypchnąć tag: `git tag v0.4.0 && git push origin v0.4.0`.)
 3. GitHub Actions (`.github/workflows/release.yml`) zbuduje instalator Windows, podpisze go
    i opublikuje wydanie z plikiem `latest.json`. Trwa to ok. 10–15 minut.
 
