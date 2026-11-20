@@ -38,7 +38,7 @@ export default function App() {
   const [onboarding, setOnboarding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("dashboard");
-  const [addMode, setAddMode] = useState<"creator" | "csv">("creator");
+  const [addMode, setAddMode] = useState<"creator" | "csv">("csv");
   const [studyTags, setStudyTags] = useState<string[]>([]);
   const [practice, setPractice] = useState<{ tags: string[]; shuffle: boolean; stars: StarFilter }>({ tags: [], shuffle: true, stars: NO_STAR_FILTER });
   // Licznik zmian – odświeża widoki po imporcie/ocenie.
@@ -50,6 +50,7 @@ export default function App() {
   const [version, setVersion] = useState(0);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const bump = useCallback(() => setVersion((v) => v + 1), []);
+  const backToImport = useCallback(() => setAddMode("csv"), []);
 
   useEffect(() => {
     if (isTauri()) import("@tauri-apps/api/app").then((m) => m.getVersion()).then(setAppVersion).catch(() => {});
@@ -103,7 +104,7 @@ export default function App() {
         </div>
         <nav>
           {NAV.map((n) => (
-            <button key={n.id} className={navOf(view) === n.id ? "nav active" : "nav"} onClick={() => setView(n.id)}>
+            <button key={n.id} className={navOf(view) === n.id ? "nav active" : "nav"} onClick={() => { setView(n.id); if (n.id === "import") setAddMode("csv"); }}>
               {n.label}
             </button>
           ))}
@@ -144,19 +145,23 @@ export default function App() {
         {view === "import" && (
           <div>
             <div className="panel-head add-head">
-              <h1>Dodaj fiszki</h1>
-              <div className="segmented" role="tablist" aria-label="Sposób dodawania">
-                <button role="tab" aria-selected={addMode === "creator"} className={addMode === "creator" ? "on" : ""} onClick={() => setAddMode("creator")}>
-                  ✍️ Kreator
-                </button>
-                <button role="tab" aria-selected={addMode === "csv"} className={addMode === "csv" ? "on" : ""} onClick={() => setAddMode("csv")}>
-                  📄 Import CSV
-                </button>
-              </div>
+              {addMode === "creator" ? (
+                <>
+                  <h1>Dodaj ręcznie</h1>
+                  <button onClick={() => setAddMode("csv")} title="Wróć do importu CSV (Esc)">
+                    ← Powrót <kbd className="plain">Esc</kbd>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h1>Dodaj fiszki</h1>
+                  <button className="primary" onClick={() => setAddMode("creator")}>✍️ Dodaj ręcznie</button>
+                </>
+              )}
             </div>
-            {/* Kreator zostaje zamontowany, żeby lista „Dodane teraz” nie znikała po zajrzeniu do importu. */}
+            {/* Kreator zostaje zamontowany, żeby lista „Dodane teraz” nie znikała po powrocie do importu. */}
             <div hidden={addMode !== "creator"}>
-              <Creator store={store} onChange={bump} onDone={() => setView("cards")} />
+              <Creator store={store} onChange={bump} onDone={() => setView("cards")} onBack={backToImport} active={addMode === "creator"} />
             </div>
             {addMode === "csv" && <ImportView store={store} onImported={() => { bump(); setView("cards"); }} />}
           </div>

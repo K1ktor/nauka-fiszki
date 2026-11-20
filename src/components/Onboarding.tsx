@@ -14,8 +14,8 @@ interface Props {
 }
 
 const THEME_OPTIONS: { id: Theme; label: string; desc: string }[] = [
-  { id: "light", label: "Jasny", desc: "Jasne tło, dobre za dnia." },
   { id: "dark", label: "Ciemny", desc: "Ciemne tło, łagodne dla oczu wieczorem." },
+  { id: "light", label: "Jasny", desc: "Jasne tło, dobre za dnia." },
   { id: "system", label: "Systemowy", desc: "Jak w ustawieniach Windowsa." },
 ];
 

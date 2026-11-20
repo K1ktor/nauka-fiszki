@@ -1,14 +1,17 @@
 export type Theme = "system" | "light" | "dark";
 const KEY = "fiszki-motyw";
 
+/** Domyślny motyw, gdy użytkownik jeszcze nic nie wybrał. */
+export const DEFAULT_THEME: Theme = "dark";
+
 export function loadTheme(): Theme {
   try {
     const t = localStorage.getItem(KEY);
-    if (t === "light" || t === "dark") return t;
+    if (t === "light" || t === "dark" || t === "system") return t;
   } catch {
     /* brak localStorage */
   }
-  return "system";
+  return DEFAULT_THEME;
 }
 
 export function applyTheme(t: Theme): void {
@@ -16,8 +19,8 @@ export function applyTheme(t: Theme): void {
   if (t === "system") root.removeAttribute("data-theme");
   else root.setAttribute("data-theme", t);
   try {
-    if (t === "system") localStorage.removeItem(KEY);
-    else localStorage.setItem(KEY, t);
+    // Zapisujemy też „system”, bo brak wpisu oznacza teraz motyw domyślny (ciemny).
+    localStorage.setItem(KEY, t);
   } catch {
     /* ignorujemy */
   }
