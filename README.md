@@ -9,7 +9,14 @@ Desktopowa aplikacja do samodzielnej nauki z fiszkami. Wszystkie dane zostają n
   nagłówek jest pomijany, duplikaty pytań są pomijane. Podgląd przed importem i możliwość dodania tagów do całego pliku.
 - **Samoocena 1–5 gwiazdek** po odsłonięciu odpowiedzi (klawisze: `Spacja` – pokaż odpowiedź, `1`–`5` – ocena).
   Przy każdej gwiazdce widać, kiedy fiszka wróci.
-- **Algorytm powtórek** (wariant SM-2) wyznacza dzień kolejnego pokazu – szczegóły niżej.
+- **Algorytm powtórek FSRS** wyznacza dzień kolejnego pokazu, z ustawianą **docelową skutecznością** (domyślnie 90%) – szczegóły niżej.
+- **Eksport fiszek do CSV** – w zakładce Fiszki: zaznaczone fiszki albo wszystkie z bieżącego filtra, w formacie
+  zgodnym z importem (`pytanie,odpowiedź,tagi`, tagi rozdzielone `|`).
+- **Aktualizacje bez instalatora** – pasek postępu pobierania w aplikacji, cicha instalacja w tle i automatyczny restart.
+- **Limit nowych fiszek dziennie** – w zakładce Nauka suwak od 0 do wszystkich i pole na własną liczbę.
+  Powtórki już poznanych fiszek nie mają limitu.
+- **Wpisywanie odpowiedzi** (opcjonalne, przełącznik w zakładce Nauka) – przed odsłonięciem wpisujesz odpowiedź,
+  potem widzisz ją obok poprawnej z oznaczeniem: zgadza się / prawie (np. brak polskich znaków) / inaczej.
 - **Streak** – seria dni z rzędu z co najmniej jedną powtórką, rekord, ostrzeżenie gdy dziś jeszcze nie było nauki,
   kalendarz aktywności z ostatnich 18 tygodni.
 - **Tagi/kategorie** – filtrowanie nauki i listy fiszek po tagach, edycja tagów na fiszce.
@@ -25,18 +32,25 @@ Desktopowa aplikacja do samodzielnej nauki z fiszkami. Wszystkie dane zostają n
 
 ## Jak działa algorytm powtórek
 
-Każda fiszka ma: liczbę udanych powtórek z rzędu, odstęp (dni) i współczynnik łatwości (start 2,5, minimum 1,3).
+Od wersji 0.5.0 aplikacja używa **FSRS** (Free Spaced Repetition Scheduler, wersja 5, domyślne parametry).
+Dla każdej fiszki pamiętane są **stabilność** (po ilu dniach szansa przypomnienia spada do 90%) i **trudność** (1–10).
+Kolejna powtórka wypada w dniu, w którym przewidywana szansa, że jeszcze pamiętasz fiszkę, spadnie do
+**docelowej skuteczności**. Przy 90% średnio 9 na 10 powtórek kończy się przypomnieniem. Wyższa wartość = krótsze
+odstępy i więcej powtórek, niższa = mniej pracy, ale więcej zapominania (zakres 70–99%).
 
-| Ocena | Znaczenie | Co się dzieje |
-|---|---|---|
-| 1★ | Nie pamiętam | powrót **jutro**, nauka od nowa, łatwość spada mocno |
-| 2★ | Ledwo / fragment | powrót **jutro**, nauka od nowa, łatwość spada |
-| 3★ | Z trudem | zaliczone, odstęp rośnie wolno, łatwość lekko spada |
-| 4★ | Dobrze | zaliczone, odstęp × łatwość |
-| 5★ | Perfekcyjnie | zaliczone, odstęp × łatwość, łatwość rośnie |
+| Ocena | Znaczenie | Ocena FSRS | Co się dzieje |
+|---|---|---|---|
+| 1★ | Nie pamiętam | Again | powrót **jutro**, stabilność spada |
+| 2★ | Ledwo / fragment | Again | jak wyżej (fragment = nie zaliczone) |
+| 3★ | Z trudem | Hard | zaliczone, odstęp rośnie wolno |
+| 4★ | Dobrze | Good | zaliczone |
+| 5★ | Perfekcyjnie | Easy | zaliczone, odstęp rośnie najszybciej |
 
-Pierwsza udana powtórka: 1 / 2 / 3 dni (dla 3/4/5★), druga: 3 / 6 / 6 dni, kolejne: poprzedni odstęp × łatwość.
-Przykład: same piątki dają odstępy 3 → 6 → 17 → 49 → 147 dni. Logika jest w `src/lib/scheduler.ts`.
+Nowa fiszka: 1–3★ → jutro, 4★ → za 3 dni, 5★ → za 16 dni. Przy każdej gwiazdce widać, kiedy fiszka wróci.
+
+**Przejście z SM-2 (wersje do 0.4.0):** przy pierwszym uruchomieniu 0.5.0 stan FSRS każdej ocenianej fiszki jest
+odtwarzany z całej historii ocen. Termin powtórki nigdy nie jest przyspieszany: zostaje późniejszy z dotychczasowego
+i wyliczonego przez FSRS. Logika jest w `src/lib/scheduler.ts`.
 
 ## Uruchomienie
 

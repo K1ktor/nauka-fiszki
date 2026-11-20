@@ -279,3 +279,27 @@ input[type="checkbox"] { width: 1.1rem; height: 1.1rem; padding: 0; accent-color
 .star-filter select { width: auto; min-width: 6rem; }
 .star-filter select:disabled { opacity: 0.5; }
 .avg-stars { font-size: 0.8rem; color: var(--star); font-weight: 600; }
+
+/* 0.5.0: ustawienia nauki, limit nowych fiszek, wpisywanie odpowiedzi */
+.learn-settings { margin-top: 1.2rem; }
+.learn-settings .check { margin-bottom: 0.3rem; }
+.new-limit, .retention { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+.new-limit input[type="range"], .retention input[type="range"] { flex: 1; min-width: 10rem; padding: 0; accent-color: var(--accent); }
+.new-limit-input { width: 7rem; }
+.retention { margin-top: 1rem; }
+.retention b { min-width: 3rem; }
+.type-answer { margin-top: 1.2rem; font-size: 1.15rem; padding: 0.7rem 0.9rem; }
+.typed { margin-bottom: 1.2rem; padding: 0.7rem 0.9rem; border-radius: 0.6667rem; background: var(--surface-2); }
+.typed.exact { background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.typed.close { background: color-mix(in srgb, var(--star) 18%, transparent); }
+.typed.wrong { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.typed .side-label { margin-bottom: 0.3rem; }
+.typed-text { font-size: 1.15rem; white-space: pre-wrap; }
+.head-actions { display: flex; gap: 0.6rem; }
+.export-note { display: flex; justify-content: space-between; gap: 1rem; align-items: center; background: color-mix(in srgb, var(--ok) 12%, transparent); padding: 0.6rem 0.9rem; border-radius: 0.6667rem; margin-bottom: 0.8rem; font-size: 0.9rem; word-break: break-all; }
+.update-progress { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
+.update-progress-text { display: flex; justify-content: space-between; gap: 1rem; font-weight: 600; }
+.update-track { height: 0.5rem; background: var(--surface); border-radius: 66rem; overflow: hidden; }
+.update-fill { height: 100%; background: var(--accent); border-radius: 66rem; transition: width 0.2s; }
+.update-fill.indeterminate { animation: upd-slide 1.2s ease-in-out infinite; }
+@keyframes upd-slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
