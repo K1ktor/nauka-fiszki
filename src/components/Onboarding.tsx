@@ -177,7 +177,7 @@ export default function Onboarding({ store, onDone, theme, onTheme }: Props) {
 
             <div className="onb-slider">
               <div className="onb-slider-head">
-                <span>Nowe fiszki na sesję (dziennie)</span>
+                <span>Nowe fiszki dziennie</span>
                 <b>{newPerDay >= NEW_MAX ? "bez limitu" : newPerDay}</b>
               </div>
               <input
@@ -189,7 +189,7 @@ export default function Onboarding({ store, onDone, theme, onTheme }: Props) {
                 aria-label="Nowe fiszki dziennie"
                 onChange={(e) => setNewPerDay(Number(e.target.value))}
               />
-              <p className="muted small">Ile nowych fiszek dojdzie każdego dnia. Powtórki już poznanych nie mają limitu.</p>
+              <p className="muted small">Dzienny limit nowych fiszek w Nauce. Po nim zapytamy, czy nie pora odpocząć. Powtórki nie mają limitu.</p>
             </div>
 
             <div className="onb-slider">

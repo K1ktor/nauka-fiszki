@@ -17,6 +17,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
   const [revealed, setRevealed] = useState(false);
   const [hover, setHover] = useState<Stars | null>(null);
   const [ratings, setRatings] = useState<Stars[]>([]);
+  const [backToLearn, setBackToLearn] = useState(0);
   const [busy, setBusy] = useState(false);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [typed, setTyped] = useState("");
@@ -24,7 +25,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
 
   useEffect(() => {
     store.getSettings().then(setSettings);
-    store.dueCards(today, tags).then((c) => setQueue(c));
+    store.dueReviews(today, tags).then((c) => setQueue(c));
   }, [store, today, tags]);
 
   const card = queue?.[index];
@@ -33,8 +34,10 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
     async (stars: Stars) => {
       if (!card || !revealed || busy) return;
       setBusy(true);
-      await store.rateCard(card, stars, today);
+      const res = await store.rateReview(card, stars, today);
+      await store.markStreakDay(today);
       setRatings((r) => [...r, stars]);
+      if (res.backToLearn) setBackToLearn((n) => n + 1);
       setRevealed(false);
       setTyped("");
       setHover(null);
@@ -64,8 +67,8 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
   if (queue.length === 0) {
     return (
       <div className="empty">
-        <h1>Brak fiszek do powtórki 🎉</h1>
-        <p className="muted">Na dziś wszystko zrobione{tags.length ? ` w tagach: ${tags.map((t) => "#" + t).join(", ")}` : ""}.</p>
+        <h1>Brak powtórek na dziś 🎉</h1>
+        <p className="muted">Wszystko powtórzone{tags.length ? ` w tagach: ${tags.map((t) => "#" + t).join(", ")}` : ""}. Nowe fiszki czekają w Nauce.</p>
         <button className="primary" onClick={onDone}>Wróć</button>
       </div>
     );
@@ -75,8 +78,11 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
     const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
     return (
       <div className="empty">
-        <h1>Sesja zakończona! 🔥</h1>
+        <h1>Powtórka zakończona! 🔥</h1>
         <p>Powtórzone fiszki: <b>{ratings.length}</b> · średnia ocena: <b>{avg.toFixed(1)} ★</b></p>
+        {backToLearn > 0 && (
+          <p className="muted">{backToLearn} {backToLearn === 1 ? "fiszka wróciła" : "fiszek wróciło"} do Nauki (ocena 1–2★).</p>
+        )}
         <div className="dist">
           {([5, 4, 3, 2, 1] as Stars[]).map((s) => (
             <div key={s}>
@@ -98,9 +104,9 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
         <div className="progress-bar" style={{ width: `${(index / queue.length) * 100}%` }} />
       </div>
       <div className="study-meta muted">
-        <span>{index + 1} / {queue.length}</span>
+        <span>Powtórka · {index + 1} / {queue.length}</span>
         <span>{card.tags.map((t) => "#" + t).join(" ")}</span>
-        <span>{card.lastReviewed ? `ostatnio: ${card.lastReviewed}` : "nowa"}</span>
+        <span>{card.lastReviewed ? `ostatnio: ${card.lastReviewed}` : ""}</span>
       </div>
 
       <div className="flashcard">
@@ -157,7 +163,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
           <div className="rating-hint">
             {hover ? (
               <>
-                <b>{STAR_LABELS[hover]}</b> · następny pokaz <b>{formatInterval(preview[hover])}</b>
+                <b>{STAR_LABELS[hover]}</b> · {hover <= 2 ? <>wraca do <b>Nauki</b></> : <>następna powtórka <b>{formatInterval(preview[hover])}</b></>}
               </>
             ) : (
               <span className="muted">Kliknij gwiazdkę lub naciśnij 1–5</span>
@@ -165,7 +171,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
           </div>
           <div className="rating-legend muted">
             {([1, 2, 3, 4, 5] as Stars[]).map((s) => (
-              <span key={s}>{s}★ {formatInterval(preview[s])}</span>
+              <span key={s}>{s}★ {s <= 2 ? "do Nauki" : formatInterval(preview[s])}</span>
             ))}
           </div>
         </div>

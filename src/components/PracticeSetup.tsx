@@ -42,7 +42,7 @@ export default function PracticeSetup({ store, onStart, onBack }: Props) {
   return (
     <div className="practice-setup">
       <div className="panel-head">
-        <h1>Nauka bez oceny</h1>
+        <h1>Tryb swobodny</h1>
         <button className="link" onClick={onBack}>← wróć</button>
       </div>
       <section className="panel">
@@ -81,7 +81,7 @@ export default function PracticeSetup({ store, onStart, onBack }: Props) {
               także fiszki jeszcze nieocenione <span className="muted">({unrated})</span>
             </label>
             <p className="muted small">
-              Średnia liczona ze wszystkich Twoich ocen w nauce z oceną.
+              Średnia liczona ze wszystkich Twoich ocen w Nauce i Powtórce.
               {skipped > 0 ? ` Pominięto ${skipped} – te już umiesz.` : ""}
             </p>
           </>

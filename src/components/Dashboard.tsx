@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { buildQueue, Card, isNew, Store, TagInfo } from "../lib/db";
+import { Card, learnCards, reviewQueue, Store, TagInfo } from "../lib/db";
+import { streakNewTarget } from "../lib/learn";
 import { addDays, parseDay, toDay } from "../lib/dates";
 import { computeStreak, StreakInfo } from "../lib/streak";
 import { computeProgress, formatEta, lastWeeks, MASTERED_DAYS, ProgressInfo, secondsPerCard } from "../lib/progress";
@@ -8,6 +9,7 @@ interface Props {
   store: Store;
   version: number;
   onStart: (tags: string[]) => void;
+  onLearn: () => void;
   onImport: () => void;
   onCreate: () => void;
 }
@@ -20,6 +22,9 @@ interface Data {
   forecast: Record<string, number>;
   avgWeek: { avg: number | null; count: number };
   remainingNew: number | null;
+  learnedToday: number;
+  reviewsDone: number;
+  newTarget: number;
   progress: ProgressInfo;
   perCard: number;
 }
@@ -38,7 +43,7 @@ function plural(n: number, one: string, few: string, many: string): string {
   return d >= 2 && d <= 4 && (t < 12 || t > 14) ? few : many;
 }
 
-export default function Dashboard({ store, version, onStart, onImport, onCreate }: Props) {
+export default function Dashboard({ store, version, onStart, onLearn, onImport, onCreate }: Props) {
   const [data, setData] = useState<Data | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [allTags, setAllTags] = useState(false);
@@ -47,7 +52,8 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
 
   useEffect(() => {
     (async () => {
-      const [cards, tags, days, perDay, forecast, avgWeek, remainingNew, history, times, settings] = await Promise.all([
+      await store.markStreakDay(today);
+      const [cards, tags, days, perDay, forecast, avgWeek, remainingNew, history, times, settings, learnedToday, reviewsDone] = await Promise.all([
         store.listCards(),
         store.listTags(today),
         store.studyDays(),
@@ -58,6 +64,8 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
         store.reviewHistory(),
         store.recentReviewTimes(),
         store.getSettings(),
+        store.learnedToday(today),
+        store.reviewsDoneToday(today),
       ]);
       setData({
         cards,
@@ -67,22 +75,25 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
         forecast,
         avgWeek,
         remainingNew,
+        learnedToday,
+        reviewsDone,
+        newTarget: streakNewTarget(settings.newPerDay),
         progress: computeProgress(cards, history, today, settings.retention),
         perCard: secondsPerCard(times),
       });
     })();
   }, [store, version, today]);
 
-  // Tagi posortowane wg liczby fiszek na dziś (potem alfabetycznie).
+  // Tagi posortowane wg liczby powtórek na dziś (potem alfabetycznie).
   const tagRows = useMemo(() => {
     if (!data) return [];
     return data.tags
-      .map((t) => ({ ...t, queue: buildQueue(data.cards, today, [t.name], data.remainingNew).length }))
+      .map((t) => ({ ...t, queue: reviewQueue(data.cards, today, [t.name]).length }))
       .sort((a, b) => b.queue - a.queue || a.name.localeCompare(b.name, "pl"));
   }, [data, today]);
 
   if (!data) return null;
-  const { cards, streak, perDay, forecast, avgWeek, remainingNew, progress, perCard } = data;
+  const { cards, streak, perDay, forecast, avgWeek, remainingNew, learnedToday, reviewsDone, newTarget, progress, perCard } = data;
 
   if (cards.length === 0) {
     return (
@@ -97,11 +108,13 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
     );
   }
 
-  const dueAll = buildQueue(cards, today, [], remainingNew);
-  const due = selected.length ? buildQueue(cards, today, selected, remainingNew) : dueAll;
-  const newCount = due.filter(isNew).length;
-  const reviewedToday = perDay[today] ?? 0;
-  const plan = reviewedToday + dueAll.length;
+  const dueAll = reviewQueue(cards, today);
+  const due = selected.length ? reviewQueue(cards, today, selected) : dueAll;
+  const learnLeft = learnCards(cards).length;
+  // Nauka na dziś: ile nowych zostało do limitu (bez limitu = wszystkie z Nauki).
+  const newToday = Math.min(learnLeft, remainingNew ?? learnLeft);
+  const reviewedToday = reviewsDone + learnedToday;
+  const plan = reviewedToday + dueAll.length + newToday;
   const toggle = (t: string) => setSelected((s) => (s.includes(t) ? s.filter((x) => x !== t) : [...s, t]));
   const fmtAvg = (a: number | null) => (a === null ? "–" : a.toFixed(1).replace(".", ","));
   const dateLabel = parseDay(today).toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
@@ -119,39 +132,58 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
 
       <section className="panel plan">
         <PlanRing done={reviewedToday} total={plan} />
-        <div className="plan-body">
-          <h2 className="plan-title">
-            {due.length > 0
-              ? `${reviewedToday > 0 ? "Zostało" : "Na dziś"} ${due.length} ${plural(due.length, "fiszka", "fiszki", "fiszek")} · ${formatEta(due.length, perCard)}`
-              : plan > 0
-                ? "Plan na dziś zrobiony 🎉"
-                : "Na dziś nic nie zaplanowano 🎉"}
-          </h2>
-          {due.length > 0 && <div className="muted">{newCount} nowych · {due.length - newCount} powtórek</div>}
-          {tagRows.length > 0 && dueAll.length > 0 && (
-            <>
-              {allTags && tagRows.length > TOP_TAGS && (
-                <input className="tag-search" placeholder="Szukaj tagu…" value={tagQuery} onChange={(e) => setTagQuery(e.target.value)} autoFocus />
-              )}
-              <div className={allTags ? "chips chips-scroll" : "chips"}>
-                {shownTags.map((t) => (
-                  <button key={t.name} className={selected.includes(t.name) ? "chip on" : "chip"} onClick={() => toggle(t.name)}>
-                    #{t.name} <span className="chip-count">{t.queue}/{t.count}</span>
-                  </button>
-                ))}
-                {!allTags && hiddenCount > 0 && (
-                  <button className="chip more" onClick={() => setAllTags(true)}>+{hiddenCount} {plural(hiddenCount, "tag", "tagi", "tagów")} ▾</button>
-                )}
-                {allTags && (
-                  <button className="chip more" onClick={() => { setAllTags(false); setTagQuery(""); }}>zwiń ▴</button>
-                )}
-                {selected.length > 0 && <button className="link chip-clear" onClick={() => setSelected([])}>wyczyść filtr</button>}
+        <div className="plan-modes">
+          <div className="plan-mode">
+            <div className="plan-mode-body">
+              <div className="plan-mode-title">
+                Powtórka: {dueAll.length > 0 ? `${due.length} do zrobienia` : reviewsDone > 0 ? "zrobiona 🎉" : "nic na dziś 🎉"}
               </div>
-            </>
-          )}
-          <div className="start-row">
-            <button className="primary big" disabled={due.length === 0} onClick={() => onStart(selected)}>
-              {due.length > 0 ? `${reviewedToday > 0 ? "Ucz się dalej" : "Ucz się"} (${due.length})` : "Wszystko powtórzone 🎉"}
+              <div className="muted small">
+                {due.length > 0
+                  ? `${formatEta(due.length, perCard)}${reviewsDone > 0 ? ` · dziś już ${reviewsDone}` : ""}`
+                  : reviewsDone > 0
+                    ? `Powtórzone dziś: ${reviewsDone}`
+                    : "Fiszki, które już umiesz, wracają tu w dniu powtórki."}
+              </div>
+              {tagRows.length > 0 && dueAll.length > 0 && (
+                <>
+                  {allTags && tagRows.length > TOP_TAGS && (
+                    <input className="tag-search" placeholder="Szukaj tagu…" value={tagQuery} onChange={(e) => setTagQuery(e.target.value)} autoFocus />
+                  )}
+                  <div className={allTags ? "chips chips-scroll" : "chips"}>
+                    {shownTags.map((t) => (
+                      <button key={t.name} className={selected.includes(t.name) ? "chip on" : "chip"} onClick={() => toggle(t.name)}>
+                        #{t.name} <span className="chip-count">{t.queue}/{t.count}</span>
+                      </button>
+                    ))}
+                    {!allTags && hiddenCount > 0 && (
+                      <button className="chip more" onClick={() => setAllTags(true)}>+{hiddenCount} {plural(hiddenCount, "tag", "tagi", "tagów")} ▾</button>
+                    )}
+                    {allTags && (
+                      <button className="chip more" onClick={() => { setAllTags(false); setTagQuery(""); }}>zwiń ▴</button>
+                    )}
+                    {selected.length > 0 && <button className="link chip-clear" onClick={() => setSelected([])}>wyczyść filtr</button>}
+                  </div>
+                </>
+              )}
+            </div>
+            <button className="primary big plan-mode-btn" disabled={due.length === 0} onClick={() => onStart(selected)}>
+              {due.length > 0 ? `Powtarzaj (${due.length})` : "Zrobione ✓"}
+            </button>
+          </div>
+
+          <div className="plan-mode">
+            <div className="plan-mode-body">
+              <div className="plan-mode-title">
+                Nauka: {newToday > 0 ? `${newToday} ${plural(newToday, "nowa", "nowe", "nowych")}` : learnLeft > 0 ? "limit na dziś osiągnięty 💪" : "brak nowych fiszek"}
+              </div>
+              <div className="muted small">
+                {learnedToday > 0 ? `Nauczone dziś: ${learnedToday}` : `Seria dnia: wszystkie powtórki albo ${newTarget} ${plural(newTarget, "nowa", "nowe", "nowych")}`}
+                {learnLeft > 0 ? ` · w Nauce czeka ${learnLeft}` : ""}
+              </div>
+            </div>
+            <button className={`${dueAll.length === 0 ? "primary " : ""}big plan-mode-btn`} disabled={learnLeft === 0} onClick={onLearn}>
+              {learnedToday > 0 ? "Ucz się dalej" : "Ucz się"}
             </button>
           </div>
         </div>
@@ -172,8 +204,8 @@ export default function Dashboard({ store, version, onStart, onImport, onCreate 
                   {streak.studiedToday
                     ? "Dzisiejszy dzień zaliczony ✓"
                     : streak.current > 0
-                      ? <span className="warn">Ucz się dziś, aby nie stracić serii!</span>
-                      : "Zacznij dziś nową serię."}
+                      ? <span className="warn">Zrób powtórki albo naucz się {newTarget} nowych, aby nie stracić serii!</span>
+                      : `Zrób wszystkie powtórki albo naucz się ${newTarget} nowych, by zacząć serię.`}
                   {streak.studiedToday && streak.best > streak.current && (
                     <><br />Do rekordu brakuje {streak.best - streak.current} {plural(streak.best - streak.current, "dzień", "dni", "dni")}.</>
                   )}

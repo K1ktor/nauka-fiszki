@@ -4,7 +4,8 @@ import { addDays, diffDays } from "./dates";
 import { initialState, nextInterval, replay, retrievability, review, SchedulingState, Stars } from "./scheduler";
 import { computeStreak } from "./streak";
 import { computeProgress, formatEta, lastWeeks, secondsPerCard } from "./progress";
-import { Store } from "./db";
+import { poolAdditions, Store } from "./db";
+import { breakAt, dayCompleted, graduationInterval, insertRandom, learnStep, requeue, streakNewTarget } from "./learn";
 import { sqlJsDriver } from "./drivers";
 
 const T = "2026-11-17";
@@ -115,17 +116,20 @@ describe("baza danych", () => {
 
     const all = await store.listCards();
     expect(all.find((c) => c.question === "Q1")?.tags).toEqual(["kurs", "matma"]);
-    expect(await store.dueCards(T, ["matma"])).toHaveLength(1);
+    expect(all.every((c) => c.stage === "learn")).toBe(true);
+    expect(await store.dueReviews(T)).toHaveLength(0);
     expect(await store.listTags(T)).toEqual([
-      { name: "kurs", count: 2, due: 2 },
-      { name: "matma", count: 1, due: 1 },
+      { name: "kurs", count: 2, due: 0 },
+      { name: "matma", count: 1, due: 0 },
     ]);
 
     const q1 = all.find((c) => c.question === "Q1")!;
-    const next = await store.rateCard(q1, 4, T);
-    expect(next.dueDate).toBe(addDays(T, 3));
-    expect(await store.dueCards(T)).toHaveLength(1);
-    expect(await store.studyDays()).toEqual([T]);
+    expect(await store.rateLearn(q1, 5, T, true)).toEqual({ streak: 3, graduated: true });
+    const after = (await store.listCards()).find((c) => c.id === q1.id)!;
+    expect(after.stage).toBe("review");
+    expect(after.dueDate).toBe(addDays(T, 3));
+    expect(await store.dueReviews(addDays(T, 3), ["matma"])).toHaveLength(1);
+    expect((await store.listTags(addDays(T, 3))).find((t) => t.name === "matma")?.due).toBe(1);
 
     await store.updateCard(q1.id, "Q1!", "A1!", ["fizyka"]);
     expect((await store.listTags(T)).map((t) => t.name)).toEqual(["fizyka", "kurs"]);
@@ -141,16 +145,17 @@ describe("baza danych", () => {
     await store.addCards(parseCsv("A,1,x\nB,2,x\nC,3,y\n").cards, [], T);
     const [c, b, a] = await store.listCards();
     await store.setSuspended([a.id, b.id], true);
-    expect((await store.dueCards(T)).map((k) => k.question)).toEqual(["C"]);
+    expect((await store.learnPool()).map((k) => k.question)).toEqual(["C"]);
     expect((await store.practiceCards(["x"]))).toHaveLength(0);
     expect((await store.listTags(T)).find((t) => t.name === "x")).toEqual({ name: "x", count: 2, due: 0 });
+    expect((await store.listCards()).find((k) => k.question === "A")?.inPool).toBe(false);
     await store.setSuspended([a.id], false);
     expect((await store.practiceCards()).map((k) => k.question).sort()).toEqual(["A", "C"]);
 
     expect(await store.averageStars(T, T)).toEqual({ avg: null, count: 0 });
-    await store.rateCard(c, 5, addDays(T, -3));
-    await store.rateCard(a, 2, T);
-    await store.rateCard(c, 4, T);
+    await store.rateLearn(c, 5, addDays(T, -3));
+    await store.rateLearn(a, 2, T);
+    await store.rateLearn(c, 4, T);
     expect(await store.averageStars(T, T)).toEqual({ avg: 3, count: 2 });
     expect((await store.averageStars(addDays(T, -6), T)).avg).toBeCloseTo(11 / 3);
 
@@ -176,34 +181,16 @@ describe("baza danych", () => {
     expect((await store.listTags(T)).map((t) => t.name)).toEqual(["y"]);
   });
 
-  it("limit nowych fiszek dziennie, powtórki bez limitu, ustawienia", async () => {
+  it("ustawienia: limit nowych, wielkość puli", async () => {
     const store = new Store(await sqlJsDriver());
     await store.init();
-    expect(await store.getSettings()).toEqual({ retention: 0.9, newPerDay: null, typeAnswer: false });
-    await store.addCards(parseCsv("A,1\nB,2\nC,3\nD,4\nE,5\n").cards, [], addDays(T, -5));
-    // Dwie fiszki powtórzone wcześniej i zaległe dziś.
-    const byQ = async () => Object.fromEntries((await store.listCards()).map((k) => [k.question, k]));
-    let q = await byQ();
-    await store.rateCard(q.D, 3, addDays(T, -5));
-    await store.rateCard(q.E, 3, addDays(T, -5));
-
-    await store.saveSettings({ newPerDay: 2, typeAnswer: true, retention: 0.85 });
-    expect(await store.getSettings()).toEqual({ retention: 0.85, newPerDay: 2, typeAnswer: true });
-    expect((await store.dueCards(T)).map((k) => k.question)).toEqual(["D", "E", "A", "B"]);
-
-    q = await byQ();
-    await store.rateCard(q.A, 4, T);
-    expect(await store.newStudiedToday(T)).toBe(1);
-    expect((await store.dueCards(T)).map((k) => k.question)).toEqual(["D", "E", "B"]);
-    await store.rateCard(q.D, 4, T); // powtórka nie zużywa limitu nowych
-    expect((await store.dueCards(T)).map((k) => k.question)).toEqual(["E", "B"]);
-
-    await store.saveSettings({ newPerDay: 0 });
-    expect((await store.dueCards(T)).map((k) => k.question)).toEqual(["E"]);
+    expect(await store.getSettings()).toEqual({ retention: 0.9, newPerDay: null, typeAnswer: false, poolSize: 20 });
+    await store.saveSettings({ newPerDay: 2, typeAnswer: true, retention: 0.85, poolSize: 3 });
+    expect(await store.getSettings()).toEqual({ retention: 0.85, newPerDay: 2, typeAnswer: true, poolSize: 5 });
+    await store.saveSettings({ retention: 5, poolSize: 1000 });
+    expect(await store.getSettings()).toMatchObject({ retention: 0.99, poolSize: 100 });
     await store.saveSettings({ newPerDay: null });
-    expect((await store.dueCards(T)).map((k) => k.question)).toEqual(["E", "B", "C"]);
-    await store.saveSettings({ retention: 5 });
-    expect((await store.getSettings()).retention).toBe(0.99);
+    expect((await store.getSettings()).newPerDay).toBeNull();
   });
 
   it("migracja z SM-2: odtworzenie historii, terminy nie są przyspieszane", async () => {
@@ -241,6 +228,11 @@ describe("baza danych", () => {
     expect(byQ.odległa.stability).not.toBeNull();
     expect(byQ.nowa.stability).toBeNull();
     expect(byQ.nowa.dueDate).toBe(d0);
+    // 0.8.0: ostatnia ocena ≥4★ → Powtórka, reszta → Nauka; dotychczasowe dni zostają w serii.
+    expect(byQ.znana.stage).toBe("review");
+    expect(byQ.odległa.stage).toBe("learn");
+    expect(byQ.nowa.stage).toBe("learn");
+    expect(await store.studyDays()).toEqual([d0, "2026-01-02", "2026-01-04", "2026-01-10"]);
   });
 });
 
@@ -365,8 +357,129 @@ describe("postęp na ekranie Dziś", () => {
     await store.init();
     await store.addCards(parseCsv("A,B\n").cards, [], T);
     const [c] = await store.listCards();
-    await store.rateCard(c, 4, T);
+    await store.rateLearn(c, 4, T);
     expect(await store.reviewHistory()).toEqual([{ cardId: c.id, day: T, stars: 4 }]);
     expect(await store.recentReviewTimes()).toHaveLength(1);
+  });
+});
+
+describe("tryb Nauka", () => {
+  it("kółka: 4–5★ dolicza, 3★ nic nie zmienia, 1–2★ zeruje; 3 z rzędu = Powtórka", () => {
+    expect(learnStep(0, 4)).toEqual({ streak: 1, graduated: false });
+    expect(learnStep(1, 5)).toEqual({ streak: 2, graduated: false });
+    expect(learnStep(2, 3)).toEqual({ streak: 2, graduated: false });
+    expect(learnStep(2, 2)).toEqual({ streak: 0, graduated: false });
+    expect(learnStep(1, 1)).toEqual({ streak: 0, graduated: false });
+    expect(learnStep(2, 4)).toEqual({ streak: 3, graduated: true });
+    expect(graduationInterval(4)).toBe(1);
+    expect(graduationInterval(5)).toBe(3);
+  });
+
+  it("im wyższa ocena, tym później fiszka wraca w sesji", () => {
+    const q = Array.from({ length: 20 }, (_, i) => i);
+    const pos = (stars: 1 | 2 | 3 | 4 | 5) => requeue(q, stars).indexOf(0);
+    expect(pos(1)).toBeLessThan(pos(3));
+    expect(pos(2)).toBeLessThan(pos(3));
+    expect(pos(3)).toBeLessThan(pos(4));
+    expect(pos(4)).toBeLessThan(pos(5));
+    expect(requeue([7, 8], 5)).toEqual([8, 7]); // krótka kolejka: na koniec
+    expect(requeue(q, 3)).toHaveLength(20);
+    expect(insertRandom([1, 2, 3], 9, () => 0)).toEqual([1, 9, 2, 3]); // nigdy na sam początek
+    expect(insertRandom([], 9)).toEqual([9]);
+  });
+
+  it("seria dnia i okienko „pora odpocząć”", () => {
+    expect(streakNewTarget(null)).toBe(10);
+    expect(streakNewTarget(20)).toBe(10);
+    expect(streakNewTarget(5)).toBe(5);
+    expect(dayCompleted({ reviewsDone: 3, reviewsLeft: 0, learned: 0, target: 10 })).toBe(true);
+    expect(dayCompleted({ reviewsDone: 3, reviewsLeft: 1, learned: 0, target: 10 })).toBe(false);
+    expect(dayCompleted({ reviewsDone: 0, reviewsLeft: 0, learned: 0, target: 10 })).toBe(false); // nic nie zrobiono
+    expect(dayCompleted({ reviewsDone: 0, reviewsLeft: 5, learned: 10, target: 10 })).toBe(true);
+    expect(breakAt(null)).toBeNull();
+    expect(breakAt(20)).toBe(20);
+    expect(breakAt(20, 20)).toBe(30);
+    expect(breakAt(20, 31)).toBe(41);
+  });
+
+  it("pula: dopełnianie do rozmiaru tylko fiszkami z Nauki i z wybranych tagów", async () => {
+    const store = new Store(await sqlJsDriver());
+    await store.init();
+    const csv = Array.from({ length: 30 }, (_, i) => `Q${i},A${i},${i < 10 ? "a" : "b"}`).join("\n");
+    await store.addCards(parseCsv(csv).cards, [], T);
+    await store.saveSettings({ poolSize: 5 });
+
+    const a = await store.learnPool(["a"]);
+    expect(a).toHaveLength(5);
+    expect(a.every((c) => c.tags.includes("a") && c.inPool)).toBe(true);
+    // Pula zapisuje się: ponowne otwarcie daje te same fiszki.
+    expect((await store.learnPool(["a"])).map((c) => c.id).sort()).toEqual(a.map((c) => c.id).sort());
+    // Inne tagi = osobne 5 fiszek; „wszystkie” widzi już 10 z puli.
+    expect(await store.learnPool(["b"])).toHaveLength(5);
+    expect(await store.learnPool()).toHaveLength(10);
+
+    // Nauczona fiszka opuszcza pulę, wchodzi kolejna.
+    const first = a[0];
+    for (const s of [4, 5] as Stars[]) await store.rateLearn({ ...first, learnStreak: s === 4 ? 0 : 1 }, s, T);
+    let c = (await store.listCards()).find((k) => k.id === first.id)!;
+    expect(c.learnStreak).toBe(2);
+    expect(c.stage).toBe("learn");
+    expect(await store.rateLearn(c, 5, T)).toEqual({ streak: 3, graduated: true });
+    c = (await store.listCards()).find((k) => k.id === first.id)!;
+    expect(c).toMatchObject({ stage: "review", inPool: false, dueDate: addDays(T, 3), learnStreak: 0 });
+    const a2 = await store.learnPool(["a"]);
+    expect(a2).toHaveLength(5);
+    expect(a2.map((k) => k.id)).not.toContain(first.id);
+    expect(await store.learnedToday(T)).toBe(1);
+
+    // poolAdditions: nic, gdy pula pełna; brak kandydatów = brak dopisanych.
+    const all = await store.listCards();
+    expect(poolAdditions(all, ["a"], 5)).toEqual([]);
+    expect(poolAdditions(all, ["a"], 50)).toHaveLength(4); // 10 w tagu − 1 nauczona − 5 w puli
+  });
+
+  it("Powtórka: 3★ zostaje z krótszym odstępem, 1–2★ wraca do Nauki z pustymi kółkami", async () => {
+    const store = new Store(await sqlJsDriver());
+    await store.init();
+    await store.addCards(parseCsv("A,1\nB,2\nC,3\n").cards, [], T);
+    for (const k of await store.listCards()) await store.rateLearn(k, 4, T, true);
+    const day = addDays(T, 3);
+    const due = await store.dueReviews(day);
+    expect(due).toHaveLength(3);
+    const [x, y, z] = due;
+    const hard = await store.rateReview(x, 3, day);
+    const good = await store.rateReview(y, 5, day);
+    expect(hard.backToLearn).toBe(false);
+    expect(hard.interval).toBeLessThan(good.interval);
+    const lapse = await store.rateReview({ ...z, learnStreak: 2 }, 2, day);
+    expect(lapse.backToLearn).toBe(true);
+    const byId = Object.fromEntries((await store.listCards()).map((k) => [k.id, k]));
+    expect(byId[x.id].stage).toBe("review");
+    expect(byId[z.id]).toMatchObject({ stage: "learn", learnStreak: 0, inPool: true });
+    expect(await store.dueReviews(day)).toHaveLength(0);
+  });
+
+  it("seria: wszystkie powtórki na dziś albo X nowych", async () => {
+    const store = new Store(await sqlJsDriver());
+    await store.init();
+    await store.addCards(parseCsv(Array.from({ length: 12 }, (_, i) => `Q${i},A`).join("\n")).cards, [], T);
+    await store.saveSettings({ newPerDay: 3 });
+    expect(await store.markStreakDay(T)).toBe(false); // nic jeszcze nie zrobiono
+    const cards = await store.listCards();
+    for (const k of cards.slice(0, 2)) await store.rateLearn(k, 5, T, true);
+    expect(await store.markStreakDay(T)).toBe(false);
+    await store.rateLearn(cards[2], 5, T, true);
+    expect(await store.markStreakDay(T)).toBe(true); // 3 = min(10, limit 3)
+    expect(await store.studyDays()).toEqual([T]);
+
+    // Następnego dnia: powtórki (3 dni później) – wszystkie zrobione = dzień zaliczony.
+    const day = addDays(T, 3);
+    const due = await store.dueReviews(day);
+    expect(due).toHaveLength(3);
+    await store.rateReview(due[0], 4, day);
+    expect(await store.markStreakDay(day)).toBe(false);
+    for (const k of due.slice(1)) await store.rateReview(k, 4, day);
+    expect(await store.markStreakDay(day)).toBe(true);
+    expect(await store.studyDays()).toEqual([T, day]);
   });
 });

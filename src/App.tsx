@@ -8,6 +8,8 @@ import CardList from "./components/CardList";
 import ImportView from "./components/ImportView";
 import Creator from "./components/Creator";
 import LearnMenu from "./components/LearnMenu";
+import LearnSetup from "./components/LearnSetup";
+import Learn from "./components/Learn";
 import PracticeSetup from "./components/PracticeSetup";
 import Practice from "./components/Practice";
 import Updater from "./components/Updater";
@@ -20,7 +22,7 @@ const THEMES: { id: Theme; icon: string; label: string }[] = [
   { id: "dark", icon: "🌙", label: "Ciemny motyw" },
 ];
 
-export type View = "dashboard" | "learn" | "study" | "practice-setup" | "practice" | "cards" | "import";
+export type View = "dashboard" | "learn" | "study" | "learn-setup" | "learn-session" | "practice-setup" | "practice" | "cards" | "import";
 
 const NAV: { id: View; label: string }[] = [
   { id: "dashboard", label: "Dziś" },
@@ -30,7 +32,7 @@ const NAV: { id: View; label: string }[] = [
 ];
 
 function navOf(v: View): View {
-  return v === "study" || v === "practice-setup" || v === "practice" ? "learn" : v;
+  return v === "study" || v === "learn-setup" || v === "learn-session" || v === "practice-setup" || v === "practice" ? "learn" : v;
 }
 
 export default function App() {
@@ -41,6 +43,7 @@ export default function App() {
   const [view, setView] = useState<View>("dashboard");
   const [addMode, setAddMode] = useState<"creator" | "csv">("csv");
   const [studyTags, setStudyTags] = useState<string[]>([]);
+  const [learnTags, setLearnTags] = useState<string[]>([]);
   const [practice, setPractice] = useState<{ tags: string[]; shuffle: boolean; stars: StarFilter }>({ tags: [], shuffle: true, stars: NO_STAR_FILTER });
   // Licznik zmian – odświeża widoki po imporcie/ocenie.
   const [theme, setTheme] = useState<Theme>(loadTheme);
@@ -136,12 +139,18 @@ export default function App() {
         <Updater />
         {/* Klucz = zakładka: przy każdej zmianie ekranu nowa zawartość łagodnie się pojawia. */}
         <div key={view} className="view-anim">
-        {view === "dashboard" && <Dashboard store={store} version={version} onStart={startStudy} onImport={() => { setAddMode("csv"); setView("import"); }} onCreate={() => { setAddMode("creator"); setView("import"); }} />}
+        {view === "dashboard" && <Dashboard store={store} version={version} onStart={startStudy} onLearn={() => setView("learn-setup")} onImport={() => { setAddMode("csv"); setView("import"); }} onCreate={() => { setAddMode("creator"); setView("import"); }} />}
         {view === "study" && (
           <Study store={store} tags={studyTags} onChange={bump} onDone={() => setView("dashboard")} />
         )}
         {view === "learn" && (
-          <LearnMenu store={store} version={version} onRated={() => startStudy([])} onFree={() => setView("practice-setup")} />
+          <LearnMenu store={store} version={version} onReview={() => startStudy([])} onLearn={() => setView("learn-setup")} onFree={() => setView("practice-setup")} />
+        )}
+        {view === "learn-setup" && (
+          <LearnSetup store={store} onBack={() => setView("learn")} onStart={(tags) => { setLearnTags(tags); setView("learn-session"); }} />
+        )}
+        {view === "learn-session" && (
+          <Learn store={store} tags={learnTags} onChange={bump} onDone={() => setView("dashboard")} onBack={() => setView("learn-setup")} />
         )}
         {view === "practice-setup" && (
           <PracticeSetup
