@@ -180,7 +180,7 @@ export class Store {
       await this.db.execute(`ALTER TABLE cards ADD COLUMN lapses INTEGER NOT NULL DEFAULT 0`);
     }
     await this.migrateToFsrs();
-    // 0.8.0: tryby Nauka / Powtórka.
+    // 0.9.0: tryby Nauka / Powtórka.
     if (!cols.some((c) => c.name === "stage")) await this.migrateToStages();
   }
 

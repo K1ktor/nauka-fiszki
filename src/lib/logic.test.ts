@@ -228,7 +228,7 @@ describe("baza danych", () => {
     expect(byQ.odległa.stability).not.toBeNull();
     expect(byQ.nowa.stability).toBeNull();
     expect(byQ.nowa.dueDate).toBe(d0);
-    // 0.8.0: ostatnia ocena ≥4★ → Powtórka, reszta → Nauka; dotychczasowe dni zostają w serii.
+    // 0.9.0: ostatnia ocena ≥4★ → Powtórka, reszta → Nauka; dotychczasowe dni zostają w serii.
     expect(byQ.znana.stage).toBe("review");
     expect(byQ.odległa.stage).toBe("learn");
     expect(byQ.nowa.stage).toBe("learn");
