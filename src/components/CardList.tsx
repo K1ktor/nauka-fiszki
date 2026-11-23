@@ -196,7 +196,9 @@ export default function CardList({ store, version, onChange }: Props) {
                 {c.suspended ? (
                   <span className="due sleeping">💤 uśpiona</span>
                 ) : (
-                  <span className={d <= 0 ? "due now" : "due"}>{c.lastReviewed === null ? "nowa" : d < 0 ? "zaległa" : formatInterval(d)}</span>
+                  <span className={c.stage === "learn" || d <= 0 ? "due now" : "due"}>
+                    {c.stage === "learn" ? (c.lastReviewed === null ? "nowa" : `w nauce ${"●".repeat(c.learnStreak)}${"○".repeat(3 - c.learnStreak)}`) : d < 0 ? "zaległa" : formatInterval(d)}
+                  </span>
                 )}
                 {c.avgStars !== null && (
                   <span className="avg-stars" title={`Średnia z ${c.ratings} ocen`}>

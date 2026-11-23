@@ -1,45 +1,53 @@
 import { useEffect, useState } from "react";
-import { Card, DEFAULT_SETTINGS, isNew, Settings, Store } from "../lib/db";
+import { Card, DEFAULT_SETTINGS, learnCards, reviewQueue, Settings, Store } from "../lib/db";
 import { toDay } from "../lib/dates";
 import { MAX_RETENTION, MIN_RETENTION } from "../lib/scheduler";
+import { clampPoolSize, MAX_POOL_SIZE, MIN_POOL_SIZE, streakNewTarget } from "../lib/learn";
 
 interface Props {
   store: Store;
   version: number;
-  onRated: () => void;
+  onLearn: () => void;
+  onReview: () => void;
   onFree: () => void;
 }
 
 interface Counts {
-  queue: Card[];
-  newAvailable: number;
-  newToday: number;
+  reviews: number;
+  learn: Card[];
   active: number;
+  learnedToday: number;
 }
 
-export default function LearnMenu({ store, version, onRated, onFree }: Props) {
+/** Suwak limitu: maksymalna pozycja = „bez limitu”. */
+const LIMIT_MAX = 100;
+
+export default function LearnMenu({ store, version, onLearn, onReview, onFree }: Props) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [counts, setCounts] = useState<Counts | null>(null);
   const [newText, setNewText] = useState("");
+  const [poolText, setPoolText] = useState("");
   const today = toDay();
 
   useEffect(() => {
     store.getSettings().then((s) => {
       setSettings(s);
       setNewText(s.newPerDay === null ? "" : String(s.newPerDay));
+      setPoolText(String(s.poolSize));
     });
   }, [store]);
 
   useEffect(() => {
     (async () => {
-      const [queue, active, newToday] = await Promise.all([
-        store.dueCards(today),
-        store.practiceCards(),
-        store.newStudiedToday(today),
-      ]);
-      setCounts({ queue, active: active.length, newAvailable: active.filter(isNew).length, newToday });
+      const [cards, learnedToday] = await Promise.all([store.listCards(), store.learnedToday(today)]);
+      setCounts({
+        reviews: reviewQueue(cards, today).length,
+        learn: learnCards(cards),
+        active: cards.filter((c) => !c.suspended).length,
+        learnedToday,
+      });
     })();
-  }, [store, version, today, settings]);
+  }, [store, version, today]);
 
   const save = (patch: Partial<Settings>) => {
     setSettings((s) => ({ ...(s ?? DEFAULT_SETTINGS), ...patch }));
@@ -48,55 +56,59 @@ export default function LearnMenu({ store, version, onRated, onFree }: Props) {
 
   if (!settings || !counts) return null;
 
-  const due = counts.queue.length;
-  const newInQueue = counts.queue.filter(isNew).length;
-  const max = counts.newAvailable;
-  const sliderValue = settings.newPerDay === null ? max : Math.min(settings.newPerDay, max);
+  const sliderValue = settings.newPerDay === null ? LIMIT_MAX : Math.min(settings.newPerDay, LIMIT_MAX);
   const setNew = (n: number | null) => {
     save({ newPerDay: n });
     setNewText(n === null ? "" : String(n));
   };
   const retentionPct = Math.round(settings.retention * 100);
+  const inPool = counts.learn.filter((c) => c.inPool).length;
 
   return (
     <div>
       <h1>Nauka</h1>
-      <div className="mode-grid">
-        <button className="mode" onClick={onRated} disabled={!due}>
-          <span className="mode-icon">★</span>
-          <span className="mode-title">Nauka z oceną</span>
+      <div className="mode-grid three">
+        <button className="mode" onClick={onReview} disabled={counts.reviews === 0}>
+          <span className="mode-icon">↺</span>
+          <span className="mode-title">Powtórka</span>
           <span className="mode-desc">
-            Fiszki zaplanowane na dziś. Oceniasz się od 1 do 5 gwiazdek, a algorytm FSRS wyznacza dzień kolejnej powtórki.
-            Liczy się do serii.
+            Fiszki, które już umiesz, z terminem na dziś wg FSRS. Ocena 1–2★ odsyła fiszkę z powrotem do Nauki.
+          </span>
+          <span className="mode-count">{counts.reviews > 0 ? `${counts.reviews} do zrobienia` : "Na dziś wszystko powtórzone 🎉"}</span>
+        </button>
+        <button className="mode" onClick={onLearn} disabled={counts.learn.length === 0}>
+          <span className="mode-icon">★</span>
+          <span className="mode-title">Nauka</span>
+          <span className="mode-desc">
+            Nowe fiszki z wybranych tagów, {settings.poolSize} naraz. Trzy oceny ≥4★ z rzędu (albo „To już umiem”) i fiszka przechodzi do Powtórki.
           </span>
           <span className="mode-count">
-            {due > 0 ? `${due - newInQueue} powtórek · ${newInQueue} nowych` : "Na dziś wszystko zrobione 🎉"}
+            {counts.learn.length > 0 ? `${counts.learn.length} w Nauce${inPool ? ` · w puli ${inPool}` : ""}` : "Brak nowych fiszek"}
           </span>
         </button>
         <button className="mode" onClick={onFree} disabled={counts.active === 0}>
           <span className="mode-icon">↻</span>
-          <span className="mode-title">Nauka bez oceny</span>
+          <span className="mode-title">Tryb swobodny</span>
           <span className="mode-desc">
-            Swobodne przeglądanie fiszek z wybranych tagów, bez gwiazdek. Nie zmienia terminów powtórek ani statystyk.
+            Przeglądanie wszystkich fiszek albo wybranych tagów, bez ocen. Nie zmienia terminów ani statystyk.
           </span>
           <span className="mode-count">{counts.active} aktywnych fiszek</span>
         </button>
       </div>
 
       <section className="panel learn-settings">
-        <h2>Nowe fiszki dzisiaj</h2>
+        <h2>Nowe fiszki dziennie</h2>
         <div className="new-limit">
           <input
             type="range"
             min={0}
-            max={max}
+            max={LIMIT_MAX}
             step={1}
             value={sliderValue}
-            disabled={max === 0}
-            aria-label="Ile nowych fiszek dzisiaj"
+            aria-label="Dzienny limit nowych fiszek"
             onChange={(e) => {
               const v = Number(e.target.value);
-              setNew(v >= max ? null : v);
+              setNew(v >= LIMIT_MAX ? null : v);
             }}
           />
           <input
@@ -104,9 +116,9 @@ export default function LearnMenu({ store, version, onRated, onFree }: Props) {
             className="new-limit-input"
             min={0}
             step={1}
-            placeholder="wszystkie"
+            placeholder="bez limitu"
             value={newText}
-            aria-label="Własna liczba nowych fiszek"
+            aria-label="Własny dzienny limit nowych fiszek"
             onChange={(e) => {
               const raw = e.target.value;
               setNewText(raw);
@@ -117,16 +129,35 @@ export default function LearnMenu({ store, version, onRated, onFree }: Props) {
               }
             }}
           />
-          <button className="link" onClick={() => setNew(null)} disabled={settings.newPerDay === null}>wszystkie</button>
+          <button className="link" onClick={() => setNew(null)} disabled={settings.newPerDay === null}>bez limitu</button>
         </div>
         <p className="muted small">
-          {settings.newPerDay === null ? "Bez limitu" : `Limit: ${settings.newPerDay} dziennie`} · dziś zaczęte {counts.newToday} ·
-          {" "}w kolejce {newInQueue} z {max} nowych. Powtórki już poznanych fiszek nie mają limitu.
+          {settings.newPerDay === null ? "Bez limitu" : `Limit: ${settings.newPerDay} dziennie`} · nauczone dziś {counts.learnedToday}.
+          {" "}Po limicie zapytamy, czy nie pora odpocząć (możesz uczyć się dalej). Seria dnia: wszystkie powtórki albo {streakNewTarget(settings.newPerDay)} nowych.
         </p>
+
+        <div className="retention pool-size">
+          <span>Fiszek naraz w puli</span>
+          <input
+            type="number"
+            className="new-limit-input"
+            min={MIN_POOL_SIZE}
+            max={MAX_POOL_SIZE}
+            value={poolText}
+            aria-label="Wielkość puli Nauki"
+            onChange={(e) => setPoolText(e.target.value)}
+            onBlur={() => {
+              const n = clampPoolSize(Number(poolText));
+              setPoolText(String(n));
+              save({ poolSize: n });
+            }}
+          />
+        </div>
+        <p className="muted small">Ile fiszek ćwiczysz jednocześnie w Nauce ({MIN_POOL_SIZE}–{MAX_POOL_SIZE}, domyślnie 20).</p>
       </section>
 
       <section className="panel learn-settings">
-        <h2>Ustawienia nauki z oceną</h2>
+        <h2>Ustawienia</h2>
         <label className="check normal">
           <input type="checkbox" checked={settings.typeAnswer} onChange={(e) => save({ typeAnswer: e.target.checked })} />
           Wpisuj odpowiedź przed odsłonięciem

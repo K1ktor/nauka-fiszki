@@ -91,7 +91,7 @@ export default function Practice({ store, tags, shuffle, stars, onBack }: Props)
         <div className="progress-bar free" style={{ width: `${(index / queue.length) * 100}%` }} />
       </div>
       <div className="study-meta muted">
-        <span>{index + 1} / {queue.length} · bez oceny</span>
+        <span>{index + 1} / {queue.length} · tryb swobodny</span>
         <span>
           {card.avgStars !== null ? `śr. ${card.avgStars.toLocaleString("pl-PL", { maximumFractionDigits: 1 })}★ · ` : ""}
           {card.tags.map((t) => "#" + t).join(" ")}

@@ -1,7 +1,8 @@
-import { DayString, diffDays, toDay } from "./dates";
+import { addDays, DayString, diffDays, toDay } from "./dates";
 import { ParsedCard, normalizeTag } from "./csv";
 import type { ReviewRow } from "./progress";
 import { clampRetention, DEFAULT_RETENTION, replay, SchedulingState, Stars, initialState, review } from "./scheduler";
+import { clampPoolSize, DEFAULT_POOL_SIZE, dayCompleted, graduationInterval, learnStep, shuffle, Stage, streakNewTarget } from "./learn";
 
 /** Minimalny interfejs bazy SQL – realizowany przez Tauri (SQLite na dysku) lub sql.js (przeglądarka/testy). */
 export interface SqlDriver {
@@ -21,6 +22,12 @@ export interface Card extends SchedulingState {
   avgStars: number | null;
   /** Ile razy fiszka została oceniona. */
   ratings: number;
+  /** „learn” = tryb Nauka, „review” = tryb Powtórka (terminy wg FSRS). */
+  stage: Stage;
+  /** Seria ocen ≥4★ z rzędu w Nauce (wypełnione kółka, 0–3). */
+  learnStreak: number;
+  /** Czy fiszka jest w aktywnej puli Nauki. */
+  inPool: boolean;
 }
 
 /** Filtr nauki bez oceny: tylko fiszki ze średnią gwiazdek poniżej progu. */
@@ -43,30 +50,43 @@ export function matchesStarFilter(card: Card, f: StarFilter): boolean {
 export interface Settings {
   /** Docelowa skuteczność FSRS (0.7–0.99). */
   retention: number;
-  /** Ile nowych fiszek dziennie (null = wszystkie). */
+  /** Dzienny limit nowych fiszek w Nauce – po nim okienko „może pora odpocząć?” (null = bez limitu). */
   newPerDay: number | null;
   /** Czy wpisywać odpowiedź przed odsłonięciem. */
   typeAnswer: boolean;
+  /** Ile fiszek naraz jest w aktywnej puli Nauki. */
+  poolSize: number;
 }
 
-export const DEFAULT_SETTINGS: Settings = { retention: DEFAULT_RETENTION, newPerDay: null, typeAnswer: false };
+export const DEFAULT_SETTINGS: Settings = { retention: DEFAULT_RETENTION, newPerDay: null, typeAnswer: false, poolSize: DEFAULT_POOL_SIZE };
 
 export function isNew(card: Card): boolean {
   return card.lastReviewed === null;
 }
 
-/**
- * Kolejka nauki z oceną: wszystkie zaległe powtórki (bez limitu) + nowe fiszki do wyczerpania
- * dziennego limitu (`remainingNew`, null = bez limitu).
- */
-export function buildQueue(cards: Card[], today: DayString, tags: string[], remainingNew: number | null): Card[] {
-  const pool = cards.filter((c) => !c.suspended && (tags.length === 0 || c.tags.some((t) => tags.includes(t))));
-  const reviews = pool
-    .filter((c) => !isNew(c) && c.dueDate <= today)
+const inTags = (c: Card, tags: string[]) => tags.length === 0 || c.tags.some((t) => tags.includes(t));
+
+/** Kolejka Powtórki: fiszki z etapu „review” z terminem na dziś lub zaległe, najstarsze terminy najpierw. */
+export function reviewQueue(cards: Card[], today: DayString, tags: string[] = []): Card[] {
+  return cards
+    .filter((c) => !c.suspended && c.stage === "review" && c.dueDate <= today && inTags(c, tags))
     .sort((a, b) => (a.dueDate === b.dueDate ? a.id - b.id : a.dueDate < b.dueDate ? -1 : 1));
-  const fresh = pool.filter((c) => isNew(c) && c.dueDate <= today).sort((a, b) => a.id - b.id);
-  const limit = remainingNew === null ? fresh.length : Math.max(0, remainingNew);
-  return [...reviews, ...fresh.slice(0, limit)];
+}
+
+/** Aktywne fiszki w trybie Nauka (z wybranych tagów). */
+export function learnCards(cards: Card[], tags: string[] = []): Card[] {
+  return cards.filter((c) => !c.suspended && c.stage === "learn" && inTags(c, tags));
+}
+
+/**
+ * Przesuwane okno puli: fiszki już w puli (z wybranych tagów) + losowe kolejne fiszki z Nauki,
+ * aż pula osiągnie `size`. Zwraca identyfikatory fiszek do dopisania do puli.
+ */
+export function poolAdditions(cards: Card[], tags: string[], size: number, rand: () => number = Math.random): number[] {
+  const learn = learnCards(cards, tags);
+  const have = learn.filter((c) => c.inPool).length;
+  if (have >= size) return [];
+  return shuffle(learn.filter((c) => !c.inPool), rand).slice(0, size - have).map((c) => c.id);
 }
 
 export interface TagInfo {
@@ -117,6 +137,9 @@ const SCHEMA = [
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS streak_days (
+    day TEXT PRIMARY KEY
+  )`,
 ];
 
 interface CardRow {
@@ -135,6 +158,9 @@ interface CardRow {
   tags: string | null;
   avg_stars: number | null;
   ratings: number;
+  stage: string | null;
+  learn_streak: number | null;
+  in_pool: number | null;
 }
 
 export class Store {
@@ -154,6 +180,26 @@ export class Store {
       await this.db.execute(`ALTER TABLE cards ADD COLUMN lapses INTEGER NOT NULL DEFAULT 0`);
     }
     await this.migrateToFsrs();
+    // 0.9.0: tryby Nauka / Powtórka.
+    if (!cols.some((c) => c.name === "stage")) await this.migrateToStages();
+  }
+
+  /**
+   * Podział na Naukę i Powtórkę: fiszki, których ostatnia ocena to ≥4★, idą do Powtórki (z dotychczasowym
+   * terminem FSRS), reszta do Nauki. Dotychczasowe dni nauki zostają w serii.
+   */
+  private async migrateToStages(): Promise<void> {
+    await this.db.execute(`ALTER TABLE cards ADD COLUMN stage TEXT NOT NULL DEFAULT 'learn'`);
+    await this.db.execute(`ALTER TABLE cards ADD COLUMN learn_streak INTEGER NOT NULL DEFAULT 0`);
+    await this.db.execute(`ALTER TABLE cards ADD COLUMN in_pool INTEGER NOT NULL DEFAULT 0`);
+    await this.db.execute(`ALTER TABLE cards ADD COLUMN learned_day TEXT`);
+    const rcols = await this.db.select<{ name: string }>(`PRAGMA table_info(reviews)`);
+    if (!rcols.some((c) => c.name === "mode")) await this.db.execute(`ALTER TABLE reviews ADD COLUMN mode TEXT`);
+    await this.db.execute(
+      `UPDATE cards SET stage = 'review' WHERE (SELECT r.stars FROM reviews r WHERE r.card_id = cards.id
+         ORDER BY r.reviewed_at DESC, r.id DESC LIMIT 1) >= 4`,
+    );
+    await this.db.execute(`INSERT OR IGNORE INTO streak_days (day) SELECT DISTINCT review_day FROM reviews`);
   }
 
   /**
@@ -196,6 +242,7 @@ export class Store {
       retention: m.retention === undefined ? DEFAULT_SETTINGS.retention : clampRetention(Number(m.retention)),
       newPerDay: n === null || !Number.isFinite(n) ? null : Math.max(0, Math.floor(n)),
       typeAnswer: m.typeAnswer === "1",
+      poolSize: m.poolSize === undefined ? DEFAULT_POOL_SIZE : clampPoolSize(Number(m.poolSize)),
     };
   }
 
@@ -205,6 +252,7 @@ export class Store {
     if (patch.retention !== undefined) await put("retention", String(clampRetention(patch.retention)));
     if (patch.newPerDay !== undefined) await put("newPerDay", patch.newPerDay === null ? "all" : String(Math.max(0, Math.floor(patch.newPerDay))));
     if (patch.typeAnswer !== undefined) await put("typeAnswer", patch.typeAnswer ? "1" : "0");
+    if (patch.poolSize !== undefined) await put("poolSize", String(clampPoolSize(patch.poolSize)));
   }
 
   /** Czy pokazać ekran powitalny: tylko przy pierwszym uruchomieniu na pustej bazie. */
@@ -232,20 +280,47 @@ export class Store {
     }
   }
 
-  /** Ile nowych fiszek oceniono dziś po raz pierwszy. */
-  async newStudiedToday(today: DayString): Promise<number> {
+  /** Ile fiszek przeszło dziś z Nauki do Powtórki („nauczone dziś”). */
+  async learnedToday(today: DayString): Promise<number> {
+    const [r] = await this.db.select<{ n: number }>(`SELECT COUNT(*) AS n FROM cards WHERE learned_day = $1`, [today]);
+    return Number(r?.n ?? 0);
+  }
+
+  /** Ile nowych fiszek zostało do dziennego limitu (null = bez limitu). */
+  async remainingNew(today: DayString): Promise<number | null> {
+    const { newPerDay } = await this.getSettings();
+    if (newPerDay === null) return null;
+    return Math.max(0, newPerDay - (await this.learnedToday(today)));
+  }
+
+  /** Ile ocen wystawiono dziś w Powtórce. */
+  async reviewsDoneToday(today: DayString): Promise<number> {
     const [r] = await this.db.select<{ n: number }>(
-      `SELECT COUNT(*) AS n FROM (SELECT card_id, MIN(review_day) AS d FROM reviews GROUP BY card_id) WHERE d = $1`,
+      `SELECT COUNT(*) AS n FROM reviews WHERE review_day = $1 AND mode = 'review'`,
       [today],
     );
     return Number(r?.n ?? 0);
   }
 
-  /** Ile nowych fiszek można jeszcze dziś zacząć (null = bez limitu). */
-  async remainingNew(today: DayString): Promise<number | null> {
-    const { newPerDay } = await this.getSettings();
-    if (newPerDay === null) return null;
-    return Math.max(0, newPerDay - (await this.newStudiedToday(today)));
+  /**
+   * Zapisuje dzisiejszy dzień w serii, jeśli spełniony warunek: wszystkie powtórki na dziś zrobione
+   * albo nauczone min(10, limit) nowych fiszek. Zaliczonego dnia nie cofamy. Zwraca, czy dzień jest zaliczony.
+   */
+  async markStreakDay(today: DayString): Promise<boolean> {
+    const done = await this.db.select<{ day: string }>(`SELECT day FROM streak_days WHERE day = $1`, [today]);
+    if (done.length > 0) return true;
+    const [{ newPerDay }, reviewsDone, learned, [left]] = await Promise.all([
+      this.getSettings(),
+      this.reviewsDoneToday(today),
+      this.learnedToday(today),
+      this.db.select<{ n: number }>(
+        `SELECT COUNT(*) AS n FROM cards WHERE stage = 'review' AND suspended = 0 AND due_date <= $1`,
+        [today],
+      ),
+    ]);
+    const ok = dayCompleted({ reviewsDone, reviewsLeft: Number(left?.n ?? 0), learned, target: streakNewTarget(newPerDay) });
+    if (ok) await this.db.execute(`INSERT OR IGNORE INTO streak_days (day) VALUES ($1)`, [today]);
+    return ok;
   }
 
   async listCards(): Promise<Card[]> {
@@ -261,13 +336,24 @@ export class Store {
     return rows.map(rowToCard);
   }
 
+  /** Fiszki do Powtórki na dziś (opcjonalnie tylko z wybranych tagów). */
+  async dueReviews(today: DayString, tags: string[] = []): Promise<Card[]> {
+    return reviewQueue(await this.listCards(), today, tags);
+  }
+
   /**
-   * Karty do nauki z oceną na dziś: wszystkie zaległe powtórki + nowe fiszki w ramach dziennego limitu,
-   * opcjonalnie tylko z wybranych tagów.
+   * Aktywna pula Nauki dla wybranych tagów: dopełnia ją losowymi fiszkami z Nauki do rozmiaru z ustawień
+   * (pula zapisuje się w bazie między sesjami) i zwraca fiszki z puli.
    */
-  async dueCards(today: DayString, tags: string[] = []): Promise<Card[]> {
-    const [all, remaining] = await Promise.all([this.listCards(), this.remainingNew(today)]);
-    return buildQueue(all, today, tags, remaining);
+  async learnPool(tags: string[] = [], rand: () => number = Math.random): Promise<Card[]> {
+    const { poolSize } = await this.getSettings();
+    let all = await this.listCards();
+    const add = poolAdditions(all, tags, poolSize, rand);
+    if (add.length > 0) {
+      for (const id of add) await this.db.execute(`UPDATE cards SET in_pool = 1 WHERE id = $1`, [id]);
+      all = await this.listCards();
+    }
+    return learnCards(all, tags).filter((c) => c.inPool);
   }
 
   async addCards(cards: ParsedCard[], extraTags: string[] = [], today = toDay()): Promise<ImportResult> {
@@ -340,34 +426,71 @@ export class Store {
     await this.deleteCards([id]);
   }
 
-  /** Zapisuje ocenę i wyznacza kolejny dzień pokazu. Zwraca nowy stan karty. */
-  async rateCard(card: Card, stars: Stars, today = toDay()): Promise<SchedulingState> {
+  private async saveRating(card: Card, stars: Stars, today: DayString, mode: Stage): Promise<void> {
+    await this.db.execute(
+      `INSERT INTO reviews (card_id, stars, review_day, reviewed_at, mode) VALUES ($1, $2, $3, $4, $5)`,
+      [card.id, stars, today, new Date().toISOString(), mode],
+    );
+  }
+
+  /**
+   * Ocena w Powtórce: FSRS wyznacza kolejny dzień (3★ = krótszy odstęp). Przy 1–2★ fiszka wraca do Nauki
+   * z wyzerowaną serią (od razu do aktywnej puli).
+   */
+  async rateReview(card: Card, stars: Stars, today = toDay()): Promise<SchedulingState & { backToLearn: boolean }> {
     const { retention } = await this.getSettings();
     const next = review(card, stars, today, retention);
+    const backToLearn = stars <= 2;
     await this.db.execute(
       `UPDATE cards SET repetitions = $1, interval = $2, stability = $3, difficulty = $4, lapses = $5,
-                        due_date = $6, last_reviewed = $7 WHERE id = $8`,
-      [next.repetitions, next.interval, next.stability, next.difficulty, next.lapses, next.dueDate, today, card.id],
+                        due_date = $6, last_reviewed = $7, stage = $8, learn_streak = 0, in_pool = $9 WHERE id = $10`,
+      [next.repetitions, backToLearn ? 0 : next.interval, next.stability, next.difficulty, next.lapses,
+        backToLearn ? today : next.dueDate, today, backToLearn ? "learn" : "review", backToLearn ? 1 : 0, card.id],
     );
-    await this.db.execute(
-      `INSERT INTO reviews (card_id, stars, review_day, reviewed_at) VALUES ($1, $2, $3, $4)`,
-      [card.id, stars, today, new Date().toISOString()],
-    );
-    return next;
+    await this.saveRating(card, stars, today, "review");
+    return { ...next, backToLearn };
+  }
+
+  /**
+   * Ocena w Nauce: aktualizuje serię kółek i stan FSRS. Po 3 ocenach ≥4★ z rzędu (albo `knowIt`)
+   * fiszka przechodzi do Powtórki – pierwsza powtórka jutro (4★) albo za 3 dni (5★ / „To już umiem”).
+   */
+  async rateLearn(card: Card, stars: Stars, today = toDay(), knowIt = false): Promise<{ streak: number; graduated: boolean }> {
+    const { retention } = await this.getSettings();
+    const next = review(card, stars, today, retention);
+    const step = knowIt ? { streak: 3, graduated: true } : learnStep(card.learnStreak, stars);
+    if (step.graduated) {
+      const iv = graduationInterval(stars);
+      await this.db.execute(
+        `UPDATE cards SET repetitions = $1, interval = $2, stability = $3, difficulty = $4, lapses = $5,
+                          due_date = $6, last_reviewed = $7, stage = 'review', learn_streak = 0, in_pool = 0,
+                          learned_day = $8 WHERE id = $9`,
+        [next.repetitions, iv, next.stability, next.difficulty, next.lapses, addDays(today, iv), today, today, card.id],
+      );
+    } else {
+      await this.db.execute(
+        `UPDATE cards SET repetitions = $1, interval = 0, stability = $2, difficulty = $3, lapses = $4,
+                          due_date = $5, last_reviewed = $6, learn_streak = $7, in_pool = 1 WHERE id = $8`,
+        [next.repetitions, next.stability, next.difficulty, next.lapses, today, today, step.streak, card.id],
+      );
+    }
+    await this.saveRating(card, stars, today, "learn");
+    return step;
   }
 
   async listTags(today = toDay()): Promise<TagInfo[]> {
     return this.db.select<TagInfo>(
       `SELECT t.name AS name, COUNT(c.id) AS count,
-              SUM(CASE WHEN c.due_date <= $1 AND c.suspended = 0 THEN 1 ELSE 0 END) AS due
+              SUM(CASE WHEN c.stage = 'review' AND c.due_date <= $1 AND c.suspended = 0 THEN 1 ELSE 0 END) AS due
        FROM tags t JOIN card_tags ct ON ct.tag_id = t.id JOIN cards c ON c.id = ct.card_id
        GROUP BY t.id ORDER BY t.name`,
       [today],
     );
   }
 
+  /** Dni zaliczone do serii (wszystkie powtórki albo dość nowych fiszek). */
   async studyDays(): Promise<DayString[]> {
-    const rows = await this.db.select<{ d: string }>(`SELECT DISTINCT review_day AS d FROM reviews ORDER BY d`);
+    const rows = await this.db.select<{ d: string }>(`SELECT day AS d FROM streak_days ORDER BY d`);
     return rows.map((r) => r.d);
   }
 
@@ -396,10 +519,10 @@ export class Store {
     return rows.map((r) => r.t);
   }
 
-  /** Ile kart przypada na kolejne dni (prognoza). Nowe fiszki liczone dziś, w ramach dziennego limitu. */
+  /** Ile powtórek przypada na kolejne dni (prognoza). Nowe fiszki z Nauki liczone dziś, w ramach dziennego limitu. */
   async forecast(today: DayString): Promise<Record<DayString, number>> {
     const rows = await this.db.select<{ d: string; n: number }>(
-      `SELECT due_date AS d, COUNT(*) AS n FROM cards WHERE suspended = 0 AND last_reviewed IS NOT NULL GROUP BY due_date`,
+      `SELECT due_date AS d, COUNT(*) AS n FROM cards WHERE suspended = 0 AND stage = 'review' GROUP BY due_date`,
     );
     const out: Record<DayString, number> = {};
     for (const r of rows) {
@@ -407,7 +530,7 @@ export class Store {
       out[d] = (out[d] ?? 0) + Number(r.n);
     }
     const [fresh] = await this.db.select<{ n: number }>(
-      `SELECT COUNT(*) AS n FROM cards WHERE suspended = 0 AND last_reviewed IS NULL`,
+      `SELECT COUNT(*) AS n FROM cards WHERE suspended = 0 AND stage = 'learn'`,
     );
     const remaining = await this.remainingNew(today);
     const n = remaining === null ? Number(fresh?.n ?? 0) : Math.min(remaining, Number(fresh?.n ?? 0));
@@ -453,5 +576,8 @@ function rowToCard(r: CardRow): Card {
     tags: r.tags ? r.tags.split("|").sort() : [],
     avgStars: r.avg_stars == null ? null : Number(r.avg_stars),
     ratings: Number(r.ratings ?? 0),
+    stage: r.stage === "review" ? "review" : "learn",
+    learnStreak: Number(r.learn_streak ?? 0),
+    inPool: Number(r.in_pool ?? 0) === 1,
   };
 }
