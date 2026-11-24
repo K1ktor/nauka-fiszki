@@ -4,6 +4,9 @@ import { streakNewTarget } from "../lib/learn";
 import { addDays, parseDay, toDay } from "../lib/dates";
 import { computeStreak, StreakInfo } from "../lib/streak";
 import EasterEgg from "./EasterEgg";
+
+/** Szansa, że postać z easter egga pojawi się przy wejściu na ekran „Dziś”. */
+const EGG_CHANCE = 0.1;
 import { computeProgress, formatEta, lastWeeks, MASTERED_DAYS, ProgressInfo, secondsPerCard } from "../lib/progress";
 
 interface Props {
@@ -45,6 +48,8 @@ function plural(n: number, one: string, few: string, many: string): string {
 }
 
 export default function Dashboard({ store, version, onStart, onLearn, onImport, onCreate }: Props) {
+  // Losowanie raz na każde wejście na zakładkę (komponent montuje się przy każdym wejściu).
+  const [egg] = useState(() => Math.random() < EGG_CHANCE);
   const [data, setData] = useState<Data | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [allTags, setAllTags] = useState(false);
@@ -128,7 +133,7 @@ export default function Dashboard({ store, version, onStart, onLearn, onImport, 
 
   return (
     <div className="dashboard">
-      <EasterEgg />
+      {egg && <EasterEgg />}
       <h1 className="dash-title">Dziś</h1>
       <p className="muted dash-date">{dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1)}</p>
 

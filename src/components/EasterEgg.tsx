@@ -288,9 +288,8 @@ export default function EasterEgg() {
     setTethers(false);
     setVictims([]);
     setPose("idle");
+    // Po ucieczce znika do następnego (wylosowanego) wejścia na „Dziś”.
     setPhase("hidden");
-    // Po chwili znów wystaje zza rogu.
-    setTimeout(() => alive.current && setPhase("peek"), 2500);
   };
 
   if (phase === "hidden") return null;
