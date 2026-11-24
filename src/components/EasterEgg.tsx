@@ -9,7 +9,7 @@ import { createPortal } from "react-dom";
  *
  * Grafika i dźwięki leżą w `src/assets/easter-egg/` i są podmienialne (zachowaj nazwy):
  * postac.png (albo .webp/.gif/.svg/.jpg; bez pliku rysuje się wbudowana postać SVG),
- * chwyt / przyciaganie / uderzenie / ult (.mp3, .ogg albo .wav).
+ * chwyt / przyciaganie / uderzenie / ult / smiech (.mp3, .ogg albo .wav).
  */
 
 const custom = import.meta.glob("../assets/easter-egg/postac.{png,webp,gif,svg,jpg,jpeg}", {
@@ -19,12 +19,12 @@ const custom = import.meta.glob("../assets/easter-egg/postac.{png,webp,gif,svg,j
 }) as Record<string, string>;
 const CUSTOM_SRC: string | undefined = Object.values(custom)[0];
 
-const soundFiles = import.meta.glob("../assets/easter-egg/{chwyt,przyciaganie,uderzenie,ult}.{mp3,ogg,wav}", {
+const soundFiles = import.meta.glob("../assets/easter-egg/{chwyt,przyciaganie,uderzenie,ult,smiech}.{mp3,ogg,wav}", {
   eager: true,
   query: "?url",
   import: "default",
 }) as Record<string, string>;
-type Sound = "chwyt" | "przyciaganie" | "uderzenie" | "ult";
+type Sound = "chwyt" | "przyciaganie" | "uderzenie" | "ult" | "smiech";
 const SOUNDS: Partial<Record<Sound, string>> = {};
 for (const [path, url] of Object.entries(soundFiles)) {
   const name = path.split("/").pop()!.replace(/\.[^.]+$/, "") as Sound;
@@ -47,9 +47,13 @@ function play(name: Sound, volume = 0.8) {
 /** Kandydaci na „ofiary” – od najciekawszych. */
 const TARGETS = [".dashboard .ring", ".dashboard .plan-mode", ".dashboard .m-tile", ".dashboard .forecast", ".dashboard .streak-info", ".dashboard .mini-heat", ".dashboard .mastery-bar"];
 const MAX_TARGETS = 4;
+/** Kółka: czas rysowania jednego, odstęp między kolejnymi, maksymalna średnica (px). */
+const RING_MS = 520;
+const RING_STAGGER = 180;
+const RING_MAX = 240;
 
 type Phase = "peek" | "hidden" | "run";
-type Pose = "idle" | "jump" | "grab" | "slam" | "punch" | "flee";
+type Pose = "idle" | "jump" | "grab" | "slam" | "flee";
 
 interface Victim {
   el: HTMLElement;
@@ -87,7 +91,6 @@ export default function EasterEgg() {
   const [victims, setVictims] = useState<Victim[]>([]);
   const [rings, setRings] = useState(false);
   const [tethers, setTethers] = useState(false);
-  const [booms, setBooms] = useState<{ id: number; x: number; y: number }[]>([]);
   const heroRef = useRef<HTMLDivElement>(null);
   const hand = useRef({ x: 0, y: 0 });
   const alive = useRef(true);
@@ -126,7 +129,6 @@ export default function EasterEgg() {
     const midX = content ? content.left + content.width / 2 : vw / 2;
     const standX = midX - heroW / 2;
     const standY = vh - heroH - 8;
-    hand.current = { x: midX + heroW * 0.3, y: standY + heroH * 0.35 };
     const from = `translate(${vw - heroW * 0.55}px, ${vh - heroH * 0.75}px) rotate(-18deg)`;
     const at = (x: number, y: number, extra = "") => `translate(${x}px, ${y}px) ${extra}`;
 
@@ -141,30 +143,41 @@ export default function EasterEgg() {
       return finish();
     }
 
-    // 1. Wyskok zza rogu łukiem.
+    // Pozycja w powietrzu, z której bohater zaznacza i przyciąga okienka.
+    const airY = Math.max(16, vh * 0.3 - heroH / 2);
+    hand.current = { x: midX + heroW * 0.3, y: airY + heroH * 0.35 };
+
+    // 1. Wyskok zza rogu wysoko w powietrze (zawisa nad treścią).
     await track(
       hero.animate(
         [
           { transform: from },
-          { transform: at((vw + standX) / 2, standY - vh * 0.35, "rotate(200deg)"), offset: 0.55 },
-          { transform: at(standX, standY + 12, "scale(1.15, 0.8)"), offset: 0.88 },
-          { transform: at(standX, standY) },
+          { transform: at((vw + standX) / 2, airY - vh * 0.12, "rotate(260deg)"), offset: 0.6 },
+          { transform: at(standX, airY - 10, "rotate(360deg)"), offset: 0.88 },
+          { transform: at(standX, airY, "rotate(360deg)") },
         ],
         { duration: 850, easing: "cubic-bezier(.3,.7,.4,1)", fill: "forwards" },
       ),
     ).finished;
     if (!alive.current) return;
+    const hover = track(
+      hero.animate([{ transform: at(standX, airY) }, { transform: at(standX, airY - 8) }, { transform: at(standX, airY) }], {
+        duration: 700,
+        iterations: Infinity,
+        easing: "ease-in-out",
+      }),
+    );
 
-    // 2. Zaznaczenie zielonymi kółkami.
+    // 2. Zaznaczenie zielonymi kółkami, które rysują się zgodnie z ruchem wskazówek zegara.
     setPose("grab");
     setRings(true);
     play("chwyt");
-    await wait(250 + picked.length * 160);
+    await wait(RING_MS + (picked.length - 1) * RING_STAGGER + 150);
     setTethers(true);
     await wait(350);
     if (!alive.current) return;
 
-    // 3. Przyciąganie: kółka „przyklejają się” do okienek (zielona poświata), które lecą do bohatera.
+    // 3. Przyciąganie: okienka lecą w górę do bohatera wiszącego w powietrzu.
     setRings(false);
     setTethers(false);
     picked.forEach((v) =>
@@ -180,7 +193,7 @@ export default function EasterEgg() {
     const pullTo = picked.map((v, i) => {
       const spread = (i - (picked.length - 1) / 2) * Math.min(150, vw / 8);
       const tx = midX + spread - v.cx;
-      const ty = standY - vh * 0.22 - (i % 2) * 40 - v.cy;
+      const ty = airY + heroH * 0.6 + (i % 2) * 30 - v.cy;
       return { tx, ty, rot: (Math.random() - 0.5) * 30 };
     });
     const pulls = picked.map((v, i) =>
@@ -191,69 +204,66 @@ export default function EasterEgg() {
         ),
       ),
     );
-    hero.animate([{ transform: at(standX, standY) }, { transform: at(standX, standY - 70) }], { duration: 650, easing: "ease-out", fill: "forwards" });
     await Promise.all(pulls.map((p) => p.finished));
     if (!alive.current) return;
     await wait(200);
 
-    // 4. Ciśnięcie o podłogę.
+    // 4. Jedno uderzenie z powietrza w ziemię – bohater nurkuje razem z okienkami.
+    hover.cancel();
     setPose("slam");
     const floor = picked.map((v, i) => {
       const h = v.rect.height * 0.8;
       return { tx: pullTo[i].tx, ty: vh - 6 - h / 2 - v.cy, rot: pullTo[i].rot * 0.3 };
     });
+    track(
+      hero.animate(
+        [
+          { transform: at(standX, airY) },
+          { transform: at(standX, airY - 40, "rotate(-12deg)"), offset: 0.3 },
+          { transform: at(standX, standY + 10, "scale(1.15, 0.8)"), offset: 0.85 },
+          { transform: at(standX, standY) },
+        ],
+        { duration: 520, easing: "cubic-bezier(.6,0,.9,.5)", fill: "forwards" },
+      ),
+    );
     const slams = picked.map((v, i) => {
       const a = v.el.animate(
         [
           { transform: `translate(${pullTo[i].tx}px, ${pullTo[i].ty}px) rotate(${pullTo[i].rot}deg) scale(0.8)` },
-          { transform: `translate(${floor[i].tx}px, ${floor[i].ty}px) rotate(${floor[i].rot}deg) scale(0.86, 0.68)`, offset: 0.8 },
+          { transform: `translate(${pullTo[i].tx}px, ${pullTo[i].ty - 40}px) rotate(${pullTo[i].rot}deg) scale(0.8)`, offset: 0.3 },
+          { transform: `translate(${floor[i].tx}px, ${floor[i].ty}px) rotate(${floor[i].rot}deg) scale(0.86, 0.68)`, offset: 0.85 },
           { transform: `translate(${floor[i].tx}px, ${floor[i].ty}px) rotate(${floor[i].rot}deg) scale(0.8)` },
         ],
-        { duration: 380, easing: "cubic-bezier(.7,0,1,.6)", fill: "forwards" },
+        { duration: 520, easing: "cubic-bezier(.6,0,.9,.5)", fill: "forwards" },
       );
       pulls[i].cancel();
       return track(a);
     });
-    hero.animate([{ transform: at(standX, standY - 70) }, { transform: at(standX, standY + 10, "scale(1.1, 0.85)") }, { transform: at(standX, standY) }], {
-      duration: 380,
-      easing: "ease-in",
-      fill: "forwards",
-    });
-    await Promise.all(slams.map((s) => s.finished));
+    await wait(440);
     if (!alive.current) return;
     play("uderzenie", 1);
     const app = document.querySelector<HTMLElement>(".app");
-    if (app) track(app.animate(shake(14), { duration: 420 }));
-    await wait(350);
-
-    // 5. Ciosy: bohater doskakuje do każdego okienka i uderza.
-    setPose("punch");
-    let heroX = standX;
-    for (let i = 0; i < picked.length; i++) {
-      if (!alive.current) return;
-      const x = picked[i].cx + floor[i].tx - heroW * 0.9;
-      track(hero.animate([{ transform: at(heroX, standY) }, { transform: at((heroX + x) / 2, standY - 40) }, { transform: at(x, standY) }], { duration: 220, fill: "forwards", easing: "ease-out" }));
-      heroX = x;
-      await wait(220);
-      const y = picked[i].cy + floor[i].ty;
-      setBooms((b) => [...b, { id: Date.now() + i, x: picked[i].cx + floor[i].tx, y }]);
-      play("uderzenie", 0.35);
-      track(picked[i].el.animate(shake(10), { duration: 260, composite: "add" }));
-      await wait(260);
-    }
-    await wait(250);
+    if (app) track(app.animate(shake(16), { duration: 480 }));
+    await Promise.all(slams.map((s) => s.finished));
+    await wait(450);
     if (!alive.current) return;
 
-    // 6. Ucieczka w lewo, okienka wracają na miejsca.
+    // 5. Ucieczka: wystrzał jak pocisk z katapulty – przysiad, potem lot po paraboli poza ekran.
     setPose("flee");
-    setBooms([]);
-    const flee = track(
-      hero.animate([{ transform: at(heroX, standY, "scaleX(-1)") }, { transform: at(heroX - 60, standY - 50, "scaleX(-1)"), offset: 0.2 }, { transform: at(-heroW - 40, standY, "scaleX(-1)") }], {
-        duration: 900,
-        easing: "ease-in",
-        fill: "forwards",
-      }),
-    );
+    const endX = -heroW - 80;
+    const endY = vh * 0.45;
+    const peak = standY - Math.max(40, vh * 0.04); // jak wysoko ponad linię start–koniec
+    const arc: Keyframe[] = [{ transform: at(standX, standY), offset: 0 }, { transform: at(standX + 10, standY + 14, "scale(1.15, 0.75)"), offset: 0.14 }];
+    const STEPS = 14;
+    for (let k = 0; k <= STEPS; k++) {
+      const t = k / STEPS;
+      const x = standX + (endX - standX) * t;
+      const y = standY + (endY - standY) * t - 4 * peak * t * (1 - t);
+      arc.push({ transform: at(x, y, `rotate(${-720 * t}deg)`), offset: 0.2 + 0.8 * t });
+    }
+    const flee = track(hero.animate(arc, { duration: 1300, easing: "linear", fill: "forwards" }));
+    setTimeout(() => alive.current && play("uderzenie", 0.35), 260);
+    setTimeout(() => alive.current && play("smiech"), 380);
     const backs = picked.map((v, i) => {
       const a = v.el.animate(
         [
@@ -261,7 +271,7 @@ export default function EasterEgg() {
           { transform: "translate(0, -10px) scale(1.03)", offset: 0.8 },
           { transform: "none" },
         ],
-        { duration: 800, delay: 300 + i * 80, easing: "cubic-bezier(.3,1.3,.5,1)", fill: "backwards" },
+        { duration: 800, delay: 500 + i * 80, easing: "cubic-bezier(.3,1.3,.5,1)", fill: "backwards" },
       );
       slams[i].cancel();
       return track(a);
@@ -276,7 +286,6 @@ export default function EasterEgg() {
     running.current = [];
     setRings(false);
     setTethers(false);
-    setBooms([]);
     setVictims([]);
     setPose("idle");
     setPhase("hidden");
@@ -290,19 +299,23 @@ export default function EasterEgg() {
     <>
       {phase === "run" && <div className="egg-blocker" />}
       {rings &&
-        victims.map((v, i) => (
-          <div
-            key={i}
-            className="egg-ring"
-            style={{
-              left: v.rect.left - 10,
-              top: v.rect.top - 10,
-              width: v.rect.width + 20,
-              height: v.rect.height + 20,
-              animationDelay: `${i * 160}ms`,
-            }}
-          />
-        ))}
+        victims.map((v, i) => {
+          const d = Math.min(Math.max(v.rect.width, v.rect.height), RING_MAX) + 24;
+          return (
+            <svg key={i} className="egg-ring" width={d} height={d} viewBox="0 0 100 100" style={{ left: v.cx - d / 2, top: v.cy - d / 2 }}>
+              <circle className="egg-ring-track" cx="50" cy="50" r="46" />
+              <circle
+                className="egg-ring-fill"
+                cx="50"
+                cy="50"
+                r="46"
+                pathLength={100}
+                transform="rotate(-90 50 50)"
+                style={{ animationDuration: `${RING_MS}ms`, animationDelay: `${i * RING_STAGGER}ms` }}
+              />
+            </svg>
+          );
+        })}
       {tethers && (
         <svg className="egg-tethers" width="100%" height="100%">
           {victims.map((v, i) => (
@@ -310,11 +323,6 @@ export default function EasterEgg() {
           ))}
         </svg>
       )}
-      {booms.map((b) => (
-        <div key={b.id} className="egg-boom" style={{ left: b.x, top: b.y }}>
-          <span>ŁUP!</span>
-        </div>
-      ))}
       {phase === "peek" ? (
         <button className="egg-peek" onClick={start} title="Hmm… kto to?" aria-label="Niespodzianka">
           <Hero pose="idle" />
