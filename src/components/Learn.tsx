@@ -7,7 +7,7 @@ import { STAR_LABELS, Stars } from "../lib/scheduler";
 import TypedAnswer from "./TypedAnswer";
 import Burst from "./Burst";
 import { settle } from "../lib/juice";
-import { sfx, sfxForStars } from "../lib/sounds";
+import { sfx } from "../lib/sounds";
 
 interface Props {
   store: Store;
@@ -111,7 +111,6 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
       setFx(effect);
       // Dźwięk razem z animacją kółek/gwiazdek, a nie po pauzie.
       if (res.graduated) sfx("nauczona");
-      else sfxForStars(stars);
       if (res.graduated) setGrads((g) => g + 1);
       // Pokaż wypełnione kółka na tej samej fiszce, zanim przejdziemy dalej.
       setQueue((q) => (q ? [{ ...q[0], learnStreak: res.streak }, ...q.slice(1)] : q));

@@ -135,11 +135,12 @@ export default function App() {
               {t.icon}
             </button>
           ))}
-          <span className="switch-sep" aria-hidden="true" />
-          <button className={sound ? "on" : ""} title={sound ? "Dźwięki włączone" : "Dźwięki wyłączone"} aria-label="Dźwięki" aria-pressed={sound} onClick={toggleSound}>
-            {sound ? "🔊" : "🔇"}
-          </button>
         </div>
+        <label className="sound-switch" title={sound ? "Dźwięki włączone" : "Dźwięki wyłączone"}>
+          <span>{sound ? "🔊" : "🔇"} Dźwięki</span>
+          <input type="checkbox" role="switch" checked={sound} onChange={toggleSound} aria-label="Dźwięki" />
+          <span className={sound ? "switch-track on" : "switch-track"} aria-hidden="true"><span className="switch-knob" /></span>
+        </label>
         {!isTauri() && <div className="hint">Tryb przeglądarki: dane w localStorage</div>}
         <button className="link app-version" onClick={() => setOnboarding(true)} title="Otwórz ponownie ekran powitalny (fiszki i ustawienia zostają)">
           Ekran powitalny

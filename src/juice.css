@@ -49,26 +49,21 @@
     transition: background-color 0.3s, border-color 0.3s, color 0.3s;
   }
   .theme-switch button.on { animation: nav-on 0.35s var(--spring); }
+  .switch-track, .switch-knob { transition: background-color 0.2s, transform 0.25s var(--spring); }
 
   .chip { transition: transform 0.18s var(--spring), background-color 0.2s, border-color 0.2s, color 0.2s; }
   .chip:not(:disabled):hover { transform: translateY(-1px); }
   .chip.on { animation: chip-on 0.3s var(--spring); }
   @keyframes chip-on { 40% { transform: scale(1.1); } }
 
-  /* ---------- Fiszka: wejście, odwrócenie, wyjście ---------- */
+  /* ---------- Fiszka: wejście, odpowiedź, wyjście ---------- */
   .flashcard { animation: card-in 0.42s var(--out) both; transform-origin: 50% 60%; }
   .flashcard.from-left { animation-name: card-in-left; }
   @keyframes card-in { from { opacity: 0; transform: translateY(1.2rem) scale(0.97); } }
   @keyframes card-in-left { from { opacity: 0; transform: translateX(-2rem) rotate(-1.5deg); } }
 
-  /* Odwrócenie: karta obraca się wokół pionowej osi i „odbija” na koniec. */
-  .flashcard.revealed { animation: card-flip 0.55s var(--out) both; }
-  @keyframes card-flip {
-    0% { transform: perspective(1600px) rotateY(-80deg) scale(0.96); opacity: 0.35; }
-    60% { transform: perspective(1600px) rotateY(6deg) scale(1.01); opacity: 1; }
-    100% { transform: perspective(1600px) rotateY(0) scale(1); }
-  }
-  .flashcard.revealed .a, .flashcard.revealed .typed { animation: rise-in 0.4s 0.18s var(--out) both; }
+  /* Po odsłonięciu odpowiedź wysuwa się pod pytaniem (karta się nie obraca). */
+  .flashcard.revealed .a, .flashcard.revealed .typed { animation: rise-in 0.4s var(--out) both; }
   @keyframes rise-in { from { opacity: 0; transform: translateY(0.5rem); } }
 
   /* Powtórka: dobrze oceniona fiszka wylatuje w prawo, słaba (wraca do Nauki) opada w dół. */

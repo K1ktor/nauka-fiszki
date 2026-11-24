@@ -3,7 +3,7 @@ import { Card, DEFAULT_SETTINGS, Settings, Store } from "../lib/db";
 import { formatInterval, toDay } from "../lib/dates";
 import { previewIntervals, STAR_LABELS, Stars } from "../lib/scheduler";
 import TypedAnswer from "./TypedAnswer";
-import { sfx, sfxForStars } from "../lib/sounds";
+import { sfx } from "../lib/sounds";
 import Burst from "./Burst";
 import { settle } from "../lib/juice";
 
@@ -51,7 +51,6 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
       if (!card || !revealed || busy) return;
       setBusy(true);
       setLeaving(stars);
-      sfxForStars(stars);
       const [res] = await Promise.all([
         store.rateReview(card, stars, today).then(async (r) => {
           await store.markStreakDay(today);
