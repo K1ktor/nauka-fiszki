@@ -38,9 +38,6 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
 
   const card = queue?.[index];
 
-  useEffect(() => {
-    if (revealed) sfx("odkryj");
-  }, [revealed]);
   const finished = !!queue && queue.length > 0 && !card;
   useEffect(() => {
     if (finished) sfx("koniec_sesji");
