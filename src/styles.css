@@ -506,22 +506,15 @@ button.link.app-version:hover { color: var(--accent); }
 .egg-svg, .egg-img { display: block; height: 100%; width: auto; max-width: 14rem; object-fit: contain; overflow: visible; }
 .egg-img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.35)); }
 .egg-blocker { position: fixed; inset: 0; z-index: 9998; cursor: progress; }
-.egg-ring {
-  position: fixed; z-index: 9999; pointer-events: none; border-radius: 50%;
-  border: 4px solid #22c55e; box-shadow: 0 0 14px 3px rgba(34,197,94,.7), inset 0 0 14px rgba(34,197,94,.5);
-  animation: egg-ring 0.45s cubic-bezier(.3,1.5,.5,1) both;
-}
-@keyframes egg-ring { from { opacity: 0; transform: scale(1.6) rotate(-20deg); } }
+.egg-ring { position: fixed; z-index: 9999; pointer-events: none; overflow: visible; filter: drop-shadow(0 0 6px rgba(34,197,94,.8)); }
+.egg-ring circle { fill: none; stroke-width: 4; }
+.egg-ring-track { stroke: rgba(34,197,94,.18); }
+/* Pełny okrąg „ładuje się” od godziny 12 zgodnie z ruchem wskazówek zegara. */
+.egg-ring-fill { stroke: #22c55e; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: egg-ring-draw linear forwards; }
+@keyframes egg-ring-draw { to { stroke-dashoffset: 0; } }
 .egg-tethers { position: fixed; inset: 0; z-index: 9999; pointer-events: none; }
 .egg-tethers line { stroke: #22c55e; stroke-width: 4; stroke-dasharray: 10 6; filter: drop-shadow(0 0 4px #22c55e); animation: egg-dash 0.4s linear infinite; }
 @keyframes egg-dash { to { stroke-dashoffset: -16; } }
-.egg-boom { position: fixed; z-index: 10001; pointer-events: none; transform: translate(-50%, -50%); }
-.egg-boom span {
-  display: block; font: 900 1.6rem/1 "Inter", system-ui, sans-serif; color: #fde047; letter-spacing: .02em;
-  -webkit-text-stroke: 2px #b45309; text-shadow: 0 0 18px rgba(249,115,22,.9);
-  animation: egg-boom 0.5s cubic-bezier(.3,1.6,.5,1) both;
-}
-@keyframes egg-boom { from { transform: scale(0.2) rotate(-25deg); opacity: 0; } 70% { opacity: 1; } to { transform: scale(1) rotate(-8deg); } }
 /* Pozy wbudowanej postaci. */
 .egg-svg .egg-arm-r, .egg-svg .egg-arm-l { transform-box: fill-box; transition: transform 0.18s; }
 .egg-svg .egg-arm-r { transform-origin: 0% 0%; }
@@ -530,13 +523,10 @@ button.link.app-version:hover { color: var(--accent); }
 .egg-svg.pose-grab .egg-arm-l { transform: rotate(60deg); }
 .egg-svg.pose-slam .egg-arm-r { transform: rotate(40deg); }
 .egg-svg.pose-slam .egg-arm-l { transform: rotate(-40deg); }
-.egg-svg.pose-punch .egg-arm-r { animation: egg-punch 0.48s ease-in-out infinite; }
-.egg-svg.pose-flee .egg-legs, .egg-img.pose-flee { animation: egg-run 0.18s linear infinite; }
-.egg-img.pose-punch { animation: egg-lean 0.48s ease-in-out infinite; }
+.egg-svg.pose-flee .egg-arm-r { transform: rotate(-150deg); }
+.egg-svg.pose-flee .egg-arm-l { transform: rotate(150deg); }
 .egg-img.pose-grab { transform: rotate(-6deg) scale(1.05); }
-@keyframes egg-punch { 0%, 100% { transform: none; } 45% { transform: translate(12px, -14px) rotate(-35deg); } }
-@keyframes egg-run { 50% { transform: translateY(-3px); } }
-@keyframes egg-lean { 50% { transform: translateX(10px) rotate(8deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .egg-peek, .egg-peek .egg-svg, .egg-peek .egg-img, .egg-ring, .egg-tethers line, .egg-svg *, .egg-img { animation: none !important; transition: none !important; }
+  .egg-peek, .egg-peek .egg-svg, .egg-peek .egg-img, .egg-ring-fill, .egg-tethers line, .egg-svg *, .egg-img { animation: none !important; transition: none !important; }
+  .egg-ring-fill { stroke-dashoffset: 0; }
 }
