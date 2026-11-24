@@ -5,6 +5,8 @@ import { toDay } from "../lib/dates";
 import { breakAt, graduationInterval, insertRandom, LEARN_TARGET, learnStep, requeue, shuffle } from "../lib/learn";
 import { STAR_LABELS, Stars } from "../lib/scheduler";
 import TypedAnswer from "./TypedAnswer";
+import Burst from "./Burst";
+import { settle } from "../lib/juice";
 import { sfx, sfxForStars } from "../lib/sounds";
 
 interface Props {
@@ -17,6 +19,10 @@ interface Props {
 
 /** Ile ms fiszka zostaje na ekranie po ocenie, żeby było widać wypełnione kółko. */
 const SETTLE_MS = 450;
+/** Dłużej, gdy fiszka przechodzi do Powtórki – żeby wybrzmiała animacja. */
+const GRADUATE_MS = 750;
+
+type Fx = "gain" | "lose" | "grad" | null;
 
 /** Polska odmiana: 1 fiszka, 2–4 fiszki, 5+ fiszek. */
 function fiszek(n: number): string {
@@ -52,6 +58,11 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
   const [sessionLearned, setSessionLearned] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number>();
+  // Animacje: efekt na fiszce po ocenie, kliknięta gwiazdka, licznik wejść fiszek i nauczonych (konfetti).
+  const [fx, setFx] = useState<Fx>(null);
+  const [picked, setPicked] = useState(0);
+  const [turn, setTurn] = useState(0);
+  const [grads, setGrads] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -94,15 +105,20 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
       if (!card || !queue || busy || showBreak) return;
       if (!knowIt && !revealed) return;
       setBusy(true);
+      setPicked(knowIt ? 0 : stars);
       const res = await store.rateLearn(card, stars, today, knowIt);
+      const effect: Fx = res.graduated ? "grad" : res.streak > card.learnStreak ? "gain" : res.streak < card.learnStreak ? "lose" : null;
+      setFx(effect);
+      // Dźwięk razem z animacją kółek/gwiazdek, a nie po pauzie.
+      if (res.graduated) sfx("nauczona");
+      else sfxForStars(stars);
+      if (res.graduated) setGrads((g) => g + 1);
       // Pokaż wypełnione kółka na tej samej fiszce, zanim przejdziemy dalej.
       setQueue((q) => (q ? [{ ...q[0], learnStreak: res.streak }, ...q.slice(1)] : q));
       setRevealed(true);
-      await new Promise((r) => setTimeout(r, SETTLE_MS));
+      await settle(res.graduated ? GRADUATE_MS : SETTLE_MS);
 
       let next: Card[];
-      if (res.graduated) sfx("nauczona");
-      else sfxForStars(stars);
       if (res.graduated) {
         // Przesuwane okno: na miejsce nauczonej fiszki wchodzi kolejna (w losowe miejsce kolejki).
         next = queue.slice(1);
@@ -123,6 +139,9 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
       setRevealed(false);
       setTyped("");
       setHover(null);
+      setFx(null);
+      setPicked(0);
+      setTurn((t) => t + 1);
       setBusy(false);
       onChange();
     },
@@ -153,6 +172,7 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
       <div className="empty">
         {sessionLearned > 0 ? (
           <>
+            <Burst burstKey="done" />
             <h1>Wszystko nauczone! 🎓</h1>
             <p className="muted">W tej sesji do Powtórki przeszło {sessionLearned} {fiszek(sessionLearned)}{tagNote}. Nie ma już nowych fiszek w Nauce.</p>
           </>
@@ -184,10 +204,14 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
         <span>nauczone dziś {learned}{limit !== null ? ` / ${limit}` : ""}</span>
       </div>
 
-      <div className="flashcard learn-card">
-        <div className="circles" title={`${card.learnStreak} z ${LEARN_TARGET} – trzy oceny ≥4★ z rzędu przenoszą fiszkę do Powtórki`} aria-label={`Seria ${card.learnStreak} z ${LEARN_TARGET}`}>
+      <div key={turn} className={`flashcard learn-card${revealed ? " revealed" : ""}${fx ? ` fx-${fx}` : ""}`}>
+        <div className={fx === "lose" ? "circles shake" : "circles"} title={`${card.learnStreak} z ${LEARN_TARGET} – trzy oceny ≥4★ z rzędu przenoszą fiszkę do Powtórki`} aria-label={`Seria ${card.learnStreak} z ${LEARN_TARGET}`}>
           {Array.from({ length: LEARN_TARGET }, (_, i) => (
-            <span key={i} className={i < card.learnStreak ? "circle on" : "circle"} />
+            <span
+              key={i}
+              className={`circle${i < card.learnStreak ? " on" : ""}${(fx === "gain" && i === card.learnStreak - 1) || fx === "grad" ? " pop" : ""}`}
+              style={{ "--i": i } as React.CSSProperties}
+            />
           ))}
         </div>
         <div className="side-label">Pytanie</div>
@@ -225,11 +249,12 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
       ) : (
         <div className="rating">
           <div className="rating-q">Jak dobrze znasz odpowiedź?</div>
-          <div className="stars" onMouseLeave={() => setHover(null)}>
+          <div className={picked ? "stars picked" : "stars"} onMouseLeave={() => setHover(null)}>
             {([1, 2, 3, 4, 5] as Stars[]).map((s) => (
               <button
                 key={s}
-                className={`star ${s <= shown ? "on" : ""}`}
+                className={`star ${s <= (picked || shown) ? "on" : ""}${s <= picked ? " hit" : ""}`}
+                style={{ "--i": s } as React.CSSProperties}
                 onMouseEnter={() => setHover(s)}
                 onFocus={() => setHover(s)}
                 onClick={() => rate(s)}
@@ -259,6 +284,7 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
       </div>
 
       {/* Portal: rodzic ekranu ma animację (transform), która psułaby position: fixed. */}
+      {grads > 0 && <Burst burstKey={grads} size="small" y={30} count={18} />}
       {toast && createPortal(<div className="toast">{toast}</div>, document.body)}
 
       {showBreak && createPortal(

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card, StarFilter, Store } from "../lib/db";
 import TypedAnswer from "./TypedAnswer";
+import Burst from "./Burst";
 import { sfx } from "../lib/sounds";
 
 interface Props {
@@ -28,6 +29,8 @@ export default function Practice({ store, tags, shuffle, stars, onBack }: Props)
   const [round, setRound] = useState(0);
   const [typeAnswer, setTypeAnswer] = useState(false);
   const [typed, setTyped] = useState("");
+  // Kierunek animacji: „Poprzednia” wjeżdża z lewej.
+  const [back, setBack] = useState(false);
 
   useEffect(() => {
     store.getSettings().then((s) => setTypeAnswer(s.typeAnswer));
@@ -53,11 +56,13 @@ export default function Practice({ store, tags, shuffle, stars, onBack }: Props)
   const next = () => {
     setRevealed(false);
     setTyped("");
+    setBack(false);
     setIndex((i) => i + 1);
   };
   const prev = () => {
     setRevealed(false);
     setTyped("");
+    setBack(true);
     setIndex((i) => Math.max(0, i - 1));
   };
 
@@ -81,6 +86,7 @@ export default function Practice({ store, tags, shuffle, stars, onBack }: Props)
   if (!card) {
     return (
       <div className="empty">
+        <Burst burstKey={`done-${round}`} />
         <h1>Przejrzano wszystkie fiszki 👏</h1>
         <p className="muted">
           {queue.length} fiszek{tags.length ? ` z tagów ${tags.map((t) => "#" + t).join(", ")}` : ""}
@@ -108,7 +114,7 @@ export default function Practice({ store, tags, shuffle, stars, onBack }: Props)
         <button className="link" onClick={onBack}>zakończ</button>
       </div>
 
-      <div className="flashcard">
+      <div key={`${round}-${index}`} className={`flashcard${revealed ? " revealed" : ""}${back ? " from-left" : ""}`}>
         <div className="side-label">Pytanie</div>
         <div className="q">{card.question}</div>
         {typeAnswer && !revealed && (

@@ -1,0 +1,216 @@
+/*
+ * Animacje „juice” – wszystkie w jednym pliku, żeby łatwo je było stroić albo wyłączyć.
+ * Działają tylko, gdy system NIE prosi o ograniczenie ruchu (prefers-reduced-motion).
+ * Krzywe: --spring lekko „przestrzeliwuje”, --out to łagodne hamowanie.
+ */
+:root {
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --out: cubic-bezier(0.25, 0.8, 0.3, 1);
+}
+
+/* Konfetti (src/components/Burst.tsx) – komponent sam nic nie rysuje przy ograniczonym ruchu. */
+.burst { position: fixed; width: 0; height: 0; z-index: 60; pointer-events: none; }
+.burst i {
+  position: absolute; left: 0; top: 0; width: 0.55rem; height: 0.85rem; border-radius: 2px; opacity: 0;
+  animation: burst-fly 1.25s cubic-bezier(0.15, 0.7, 0.3, 1) both;
+}
+.burst i.round { width: 0.6rem; height: 0.6rem; border-radius: 50%; }
+.burst-small i { width: 0.4rem; height: 0.6rem; animation-duration: 0.85s; }
+.burst-small i.round { width: 0.45rem; height: 0.45rem; }
+@keyframes burst-fly {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(0.3) rotate(0); }
+  55% { opacity: 1; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1) rotate(calc(var(--rot) * 0.6)); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx) * 1.15), calc(-50% + var(--dy) + 4rem)) scale(0.8) rotate(var(--rot)); }
+}
+
+/* Gwiazdki po kliknięciu nie mają być przygaszone, choć przyciski są chwilowo zablokowane. */
+.stars.picked .star:disabled { opacity: 1; }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* ---------- Przyciski i nawigacja ---------- */
+  button {
+    transition: transform 0.18s var(--spring), background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, filter 0.2s;
+  }
+  button:not(:disabled):active { transform: scale(0.96); transition-duration: 0.06s; }
+  button.primary:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 0.4rem 1rem -0.4rem color-mix(in srgb, var(--accent) 70%, transparent); }
+  button.primary:not(:disabled):active { transform: translateY(0) scale(0.96); box-shadow: none; }
+  button.link:not(:disabled):active { transform: scale(0.94); }
+
+  .nav { transition: background-color 0.2s, color 0.2s, transform 0.2s var(--spring), padding 0.2s var(--out); }
+  .nav:not(.active):hover { transform: translateX(3px); }
+  .nav.active { animation: nav-on 0.35s var(--spring); }
+  @keyframes nav-on { from { transform: scale(0.95); } }
+
+  .logo-mark { display: inline-block; transition: transform 0.6s var(--spring); }
+  .logo:hover .logo-mark { transform: rotate(180deg) scale(1.15); }
+
+  /* Zmiana motywu: kolory przechodzą płynnie, zamiast mrugnąć. */
+  body, .sidebar, .panel, .flashcard, .row, .plan-mode, .m-tile, .mode, input, textarea, select {
+    transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+  }
+  .theme-switch button.on { animation: nav-on 0.35s var(--spring); }
+
+  .chip { transition: transform 0.18s var(--spring), background-color 0.2s, border-color 0.2s, color 0.2s; }
+  .chip:not(:disabled):hover { transform: translateY(-1px); }
+  .chip.on { animation: chip-on 0.3s var(--spring); }
+  @keyframes chip-on { 40% { transform: scale(1.1); } }
+
+  /* ---------- Fiszka: wejście, odwrócenie, wyjście ---------- */
+  .flashcard { animation: card-in 0.42s var(--out) both; transform-origin: 50% 60%; }
+  .flashcard.from-left { animation-name: card-in-left; }
+  @keyframes card-in { from { opacity: 0; transform: translateY(1.2rem) scale(0.97); } }
+  @keyframes card-in-left { from { opacity: 0; transform: translateX(-2rem) rotate(-1.5deg); } }
+
+  /* Odwrócenie: karta obraca się wokół pionowej osi i „odbija” na koniec. */
+  .flashcard.revealed { animation: card-flip 0.55s var(--out) both; }
+  @keyframes card-flip {
+    0% { transform: perspective(1600px) rotateY(-80deg) scale(0.96); opacity: 0.35; }
+    60% { transform: perspective(1600px) rotateY(6deg) scale(1.01); opacity: 1; }
+    100% { transform: perspective(1600px) rotateY(0) scale(1); }
+  }
+  .flashcard.revealed .a, .flashcard.revealed .typed { animation: rise-in 0.4s 0.18s var(--out) both; }
+  @keyframes rise-in { from { opacity: 0; transform: translateY(0.5rem); } }
+
+  /* Powtórka: dobrze oceniona fiszka wylatuje w prawo, słaba (wraca do Nauki) opada w dół. */
+  .flashcard.leave-right { animation: card-out-right 0.26s ease-in both; }
+  .flashcard.leave-down { animation: card-out-down 0.26s ease-in both; }
+  @keyframes card-out-right { to { opacity: 0; transform: translateX(3.5rem) rotate(2.5deg); } }
+  @keyframes card-out-down { to { opacity: 0; transform: translateY(2rem) rotate(-1.5deg) scale(0.97); } }
+
+  /* Nauka: reakcja karty na ocenę. */
+  .flashcard.fx-gain { animation: card-gain 0.45s var(--out) both; }
+  @keyframes card-gain { 40% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent), 0 0.6667rem 2rem -18px rgba(0,0,0,0.25); } }
+  .flashcard.fx-lose { animation: card-lose 0.45s ease-out both; }
+  @keyframes card-lose {
+    20% { transform: translateX(-0.5rem); border-color: var(--danger); }
+    40% { transform: translateX(0.45rem); }
+    60% { transform: translateX(-0.3rem); }
+    80% { transform: translateX(0.15rem); }
+  }
+  /* Przejście do Powtórki: błysk, lekkie uniesienie i odlot w górę. */
+  .flashcard.fx-grad { animation: card-grad 0.75s var(--out) both; }
+  @keyframes card-grad {
+    0% { transform: none; }
+    35% { transform: scale(1.03); border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 40%, transparent), 0 0 3rem -0.5rem var(--accent); }
+    65% { transform: scale(1.03); opacity: 1; border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent), 0 0 3rem -0.5rem var(--accent); }
+    100% { transform: translateY(-3rem) scale(0.9); opacity: 0; }
+  }
+
+  /* Kółka serii */
+  .circle { transition: background-color 0.25s, border-color 0.25s, transform 0.3s var(--spring); }
+  .circle.pop { animation: circle-pop 0.5s var(--spring) both; animation-delay: calc(var(--i, 0) * 70ms); }
+  @keyframes circle-pop {
+    0% { transform: scale(0.4); box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); }
+    50% { transform: scale(1.6); }
+    100% { transform: scale(1.12); box-shadow: 0 0 0 0.6rem transparent; }
+  }
+  .circles.shake { animation: circles-shake 0.4s ease-out; }
+  @keyframes circles-shake { 25% { transform: translateX(-4px) rotate(-4deg); } 50% { transform: translateX(4px) rotate(3deg); } 75% { transform: translateX(-2px); } }
+
+  /* ---------- Ocena ---------- */
+  .rating, .reveal, .practice-nav { animation: rise-in 0.3s var(--out) both; }
+  .star { transition: transform 0.22s var(--spring), color 0.12s; }
+  .star:not(:disabled):hover { transform: scale(1.22) rotate(-8deg); }
+  .star.hit { animation: star-hit 0.42s var(--spring) both; animation-delay: calc(var(--i, 1) * 35ms); }
+  @keyframes star-hit {
+    0% { transform: scale(1); }
+    45% { transform: scale(1.45) rotate(-12deg); text-shadow: 0 0 0.8rem color-mix(in srgb, var(--star) 70%, transparent); }
+    100% { transform: scale(1.1); }
+  }
+
+  .progress-bar { transition: width 0.55s var(--spring); position: relative; }
+  .progress-bar::after {
+    content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 2.5rem;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55));
+    animation: bar-shine 2.4s ease-in-out infinite; opacity: 0;
+  }
+  @keyframes bar-shine { 0%, 60% { opacity: 0; } 75% { opacity: 1; } 100% { opacity: 0; } }
+
+  /* ---------- Komunikaty i okna ---------- */
+  .toast { animation: toast-pop 0.45s var(--spring) both; }
+  @keyframes toast-pop { from { opacity: 0; transform: translate(-50%, 1.2rem) scale(0.85); } }
+  .modal-bg { animation: fade-in 0.2s ease-out both; }
+  .modal { animation: modal-pop 0.38s var(--spring) both; }
+  @keyframes fade-in { from { opacity: 0; } }
+  @keyframes modal-pop { from { opacity: 0; transform: translateY(1rem) scale(0.94); } }
+  .break-emoji { display: inline-block; animation: wiggle 1.4s 0.3s ease-in-out both; }
+  @keyframes wiggle { 15% { transform: rotate(-10deg) scale(1.1); } 30% { transform: rotate(8deg); } 45% { transform: rotate(-5deg); } 60% { transform: none; } }
+  .creator-flash { display: inline-block; animation: flash-pop 0.4s var(--spring) both; }
+  @keyframes flash-pop { from { opacity: 0; transform: scale(0.7); } }
+  .export-note, .update-bar { animation: rise-in 0.35s var(--out) both; }
+
+  /* Ekrany końca sesji i puste stany */
+  .empty > h1 { animation: title-pop 0.6s var(--spring) both; }
+  .empty > :not(h1):not(.burst) { animation: rise-in 0.45s var(--out) both; animation-delay: 0.15s; }
+  @keyframes title-pop { from { opacity: 0; transform: scale(0.7) translateY(0.6rem); } }
+  .dist > div { animation: rise-in 0.35s var(--out) both; }
+  .dist > div:nth-child(2) { animation-delay: 0.25s; }
+  .dist > div:nth-child(3) { animation-delay: 0.3s; }
+  .dist > div:nth-child(4) { animation-delay: 0.35s; }
+  .dist > div:nth-child(5) { animation-delay: 0.4s; }
+  .dist > div:nth-child(1) { animation-delay: 0.2s; }
+
+  /* ---------- Ekran Dziś ---------- */
+  .dashboard .panel { animation: rise-in 0.5s var(--out) both; }
+  .dashboard .dash-col .panel:nth-child(1) { animation-delay: 0.08s; }
+  .dashboard .dash-col .panel:nth-child(2) { animation-delay: 0.16s; }
+  .dashboard .progress-panel { animation-delay: 0.12s; }
+
+  /* Pierścień planu rysuje się od zera; „backwards”, żeby późniejsze zmiany dalej szły przejściem. */
+  .ring-fill { animation: ring-draw 1.2s 0.2s var(--out) backwards; }
+  @keyframes ring-draw { from { stroke-dashoffset: var(--c); } }
+  .ring.complete svg { animation: ring-done 1s 1.3s ease-out both; }
+  @keyframes ring-done { 40% { filter: drop-shadow(0 0 0.7rem var(--accent)); transform: rotate(-90deg) scale(1.05); } }
+
+  .streak-info.lit .streak-fire { display: inline-block; animation: flame 1.8s ease-in-out infinite; transform-origin: 50% 90%; }
+  @keyframes flame { 0%, 100% { transform: scale(1) rotate(-3deg); } 30% { transform: scale(1.08, 1.12) rotate(3deg); } 60% { transform: scale(0.97, 1.03) rotate(-1deg); } }
+  .streak-info.lit .streak-n { animation: streak-glow 2.6s ease-in-out infinite; }
+  @keyframes streak-glow { 50% { text-shadow: 0 0 1.2rem color-mix(in srgb, var(--fire) 45%, transparent); } }
+
+  .mini-grid .cell { animation: cell-in 0.35s var(--spring) both; }
+  .mini-grid .cell:nth-child(n+15) { animation-delay: 0.05s; }
+  .mini-grid .cell:nth-child(n+22) { animation-delay: 0.1s; }
+  .mini-grid .cell:nth-child(n+29) { animation-delay: 0.15s; }
+  @keyframes cell-in { from { opacity: 0; transform: scale(0.3); } }
+  .mini-grid .cell.today { animation: cell-in 0.35s 0.2s var(--spring) both, today-pulse 2.2s 0.8s ease-in-out infinite; }
+  @keyframes today-pulse { 50% { outline-offset: 3px; } }
+
+  .forecast .bar { transform-origin: 50% 100%; animation: bar-grow 0.6s var(--spring) both; }
+  .forecast .bar-wrap:nth-child(2) .bar { animation-delay: 0.04s; }
+  .forecast .bar-wrap:nth-child(3) .bar { animation-delay: 0.08s; }
+  .forecast .bar-wrap:nth-child(4) .bar { animation-delay: 0.12s; }
+  .forecast .bar-wrap:nth-child(5) .bar { animation-delay: 0.16s; }
+  .forecast .bar-wrap:nth-child(6) .bar { animation-delay: 0.2s; }
+  .forecast .bar-wrap:nth-child(7) .bar { animation-delay: 0.24s; }
+  @keyframes bar-grow { from { transform: scaleY(0); } }
+
+  .mastery-bar { animation: wipe-in 1s 0.25s var(--out) both; }
+  @keyframes wipe-in { from { clip-path: inset(0 100% 0 0 round 66rem); } to { clip-path: inset(0 0 0 0 round 66rem); } }
+  .m-tile { transition: transform 0.2s var(--spring), background-color 0.3s; }
+  .m-tile:hover { transform: translateY(-2px); }
+  .plan-mode { transition: transform 0.2s var(--spring), background-color 0.3s; }
+
+  /* ---------- Menu Nauki ---------- */
+  .mode { animation: rise-in 0.45s var(--out) both; transition: border-color 0.15s, transform 0.25s var(--spring), box-shadow 0.25s; }
+  .mode:nth-child(2) { animation-delay: 0.06s; }
+  .mode:nth-child(3) { animation-delay: 0.12s; }
+  .mode:not(:disabled):hover { transform: translateY(-4px); box-shadow: 0 0.8rem 1.6rem -1rem color-mix(in srgb, var(--accent) 60%, transparent); }
+  .mode-icon { display: inline-block; transition: transform 0.5s var(--spring); }
+  .mode:not(:disabled):hover .mode-icon { transform: rotate(-25deg) scale(1.2); }
+
+  /* ---------- Listy fiszek (Fiszki, „Dodane teraz” w kreatorze) ---------- */
+  .card-list .row { animation: row-in 0.35s var(--out) both; transition: background-color 0.2s, border-color 0.2s, transform 0.2s var(--spring); }
+  .card-list .row:nth-child(2) { animation-delay: 0.03s; }
+  .card-list .row:nth-child(3) { animation-delay: 0.06s; }
+  .card-list .row:nth-child(4) { animation-delay: 0.09s; }
+  .card-list .row:nth-child(5) { animation-delay: 0.12s; }
+  .card-list .row:nth-child(6) { animation-delay: 0.15s; }
+  .card-list .row:nth-child(7) { animation-delay: 0.18s; }
+  .card-list .row:nth-child(n+8) { animation-delay: 0.2s; }
+  @keyframes row-in { from { opacity: 0; transform: translateY(0.5rem); } }
+  .creator .card-list .row:first-child { animation: row-new 0.5s var(--spring) both; }
+  @keyframes row-new { from { opacity: 0; transform: translateY(-0.8rem) scale(0.96); background: var(--accent-soft); } }
+  .row-check { transition: transform 0.2s var(--spring); }
+  .row-check:checked { animation: chip-on 0.3s var(--spring); }
+  .bulkbar { transition: background-color 0.2s, border-color 0.2s; }
+}
