@@ -3,6 +3,11 @@ import { Card, DEFAULT_SETTINGS, Settings, Store } from "../lib/db";
 import { formatInterval, toDay } from "../lib/dates";
 import { previewIntervals, STAR_LABELS, Stars } from "../lib/scheduler";
 import TypedAnswer from "./TypedAnswer";
+import Burst from "./Burst";
+import { settle } from "../lib/juice";
+
+/** Krótka chwila na „wyrzucenie” ocenionej fiszki, zanim wjedzie następna. */
+const LEAVE_MS = 260;
 
 interface Props {
   store: Store;
@@ -21,6 +26,8 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
   const [busy, setBusy] = useState(false);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [typed, setTyped] = useState("");
+  // Animacja: oceniona fiszka wylatuje (w prawo przy 3–5★, w dół przy 1–2★ – wraca do Nauki).
+  const [leaving, setLeaving] = useState<Stars | null>(null);
   const today = toDay();
 
   useEffect(() => {
@@ -34,13 +41,20 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
     async (stars: Stars) => {
       if (!card || !revealed || busy) return;
       setBusy(true);
-      const res = await store.rateReview(card, stars, today);
-      await store.markStreakDay(today);
+      setLeaving(stars);
+      const [res] = await Promise.all([
+        store.rateReview(card, stars, today).then(async (r) => {
+          await store.markStreakDay(today);
+          return r;
+        }),
+        settle(LEAVE_MS),
+      ]);
       setRatings((r) => [...r, stars]);
       if (res.backToLearn) setBackToLearn((n) => n + 1);
       setRevealed(false);
       setTyped("");
       setHover(null);
+      setLeaving(null);
       setIndex((i) => i + 1);
       setBusy(false);
       onChange();
@@ -54,13 +68,13 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
       if ((e.key === " " || e.key === "Enter") && !revealed) {
         e.preventDefault();
         setRevealed(true);
-      } else if (revealed && ["1", "2", "3", "4", "5"].includes(e.key)) {
+      } else if (revealed && !busy && ["1", "2", "3", "4", "5"].includes(e.key)) {
         rate(Number(e.key) as Stars);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [revealed, rate]);
+  }, [revealed, busy, rate]);
 
   if (!queue) return null;
 
@@ -78,6 +92,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
     const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
     return (
       <div className="empty">
+        <Burst burstKey="done" />
         <h1>Powtórka zakończona! 🔥</h1>
         <p>Powtórzone fiszki: <b>{ratings.length}</b> · średnia ocena: <b>{avg.toFixed(1)} ★</b></p>
         {backToLearn > 0 && (
@@ -109,7 +124,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
         <span>{card.lastReviewed ? `ostatnio: ${card.lastReviewed}` : ""}</span>
       </div>
 
-      <div className="flashcard">
+      <div key={index} className={`flashcard${revealed ? " revealed" : ""}${leaving ? (leaving <= 2 ? " leave-down" : " leave-right") : ""}`}>
         <div className="side-label">Pytanie</div>
         <div className="q">{card.question}</div>
         {settings.typeAnswer && !revealed && (
@@ -145,11 +160,12 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
       ) : (
         <div className="rating">
           <div className="rating-q">Jak dobrze znasz odpowiedź?</div>
-          <div className="stars" onMouseLeave={() => setHover(null)}>
+          <div className={leaving ? "stars picked" : "stars"} onMouseLeave={() => setHover(null)}>
             {([1, 2, 3, 4, 5] as Stars[]).map((s) => (
               <button
                 key={s}
-                className={`star ${s <= shown ? "on" : ""}`}
+                className={`star ${s <= (leaving || shown) ? "on" : ""}${leaving && s <= leaving ? " hit" : ""}`}
+                style={{ "--i": s } as React.CSSProperties}
                 onMouseEnter={() => setHover(s)}
                 onFocus={() => setHover(s)}
                 onClick={() => rate(s)}

@@ -4,6 +4,7 @@ import { streakNewTarget } from "../lib/learn";
 import { addDays, parseDay, toDay } from "../lib/dates";
 import { computeStreak, StreakInfo } from "../lib/streak";
 import EasterEgg from "./EasterEgg";
+import { useCountUp } from "../lib/juice";
 import { computeProgress, formatEta, lastWeeks, MASTERED_DAYS, ProgressInfo, secondsPerCard } from "../lib/progress";
 
 interface Props {
@@ -200,7 +201,7 @@ export default function Dashboard({ store, version, onStart, onLearn, onImport, 
             </div>
             <div className="streak-row">
               <div className={`streak-info ${streak.studiedToday ? "lit" : ""}`}>
-                <div className="streak-n"><span className="streak-fire">🔥</span> {streak.current}</div>
+                <div className="streak-n"><span className="streak-fire">🔥</span> <Num n={streak.current} /></div>
                 <div className="streak-label muted">{streak.current === 1 ? "dzień" : "dni"} z rzędu</div>
                 <div className="streak-note muted">
                   {streak.studiedToday
@@ -231,7 +232,7 @@ export default function Dashboard({ store, version, onStart, onLearn, onImport, 
             <h2>Postęp</h2>
             <span className="muted">{cards.length} {plural(cards.length, "fiszka", "fiszki", "fiszek")}</span>
           </div>
-          <div className="progress-n">{progress.mastered} <span className="muted">opanowane</span></div>
+          <div className="progress-n"><Num n={progress.mastered} /> <span className="muted">opanowane</span></div>
           <div className="progress-delta">
             {progress.masteredThisWeek > 0 ? (
               <><span className="up">▲ +{progress.masteredThisWeek}</span> <span className="muted">w tym tygodniu</span></>
@@ -245,9 +246,9 @@ export default function Dashboard({ store, version, onStart, onLearn, onImport, 
             <i className="m-new" style={{ flex: progress.fresh }} />
           </div>
           <div className="mastery-tiles">
-            <Tile dot="m-mastered" label="Opanowane" value={progress.mastered} hint={`powtórka za ${MASTERED_DAYS}+ dni`} />
-            <Tile dot="m-learning" label="W nauce" value={progress.learning} hint="jeszcze się utrwalają" />
-            <Tile dot="m-new" label="Nowe" value={progress.fresh} hint="czekają na pierwszy raz" />
+            <Tile dot="m-mastered" label="Opanowane" value={<Num n={progress.mastered} />} hint={`powtórka za ${MASTERED_DAYS}+ dni`} />
+            <Tile dot="m-learning" label="W nauce" value={<Num n={progress.learning} />} hint="jeszcze się utrwalają" />
+            <Tile dot="m-new" label="Nowe" value={<Num n={progress.fresh} />} hint="czekają na pierwszy raz" />
             <Tile
               dot="m-star"
               label="Średnia ocen"
@@ -271,20 +272,25 @@ function Tile({ dot, label, value, hint }: { dot: string; label: string; value: 
   );
 }
 
+/** Liczba, która przy wejściu na ekran „dobiega” od zera. */
+function Num({ n }: { n: number }) {
+  return <>{useCountUp(n)}</>;
+}
+
 function PlanRing({ done, total }: { done: number; total: number }) {
   const r = 56;
   const c = 2 * Math.PI * r;
   const frac = total === 0 ? 1 : Math.min(1, done / total);
   const long = String(done).length + String(total).length > 5;
   return (
-    <div className="ring" title={`${done} z ${total} fiszek na dziś`}>
+    <div className={frac >= 1 && total > 0 ? "ring complete" : "ring"} title={`${done} z ${total} fiszek na dziś`}>
       <svg viewBox="0 0 132 132">
         <circle cx="66" cy="66" r={r} className="ring-track" />
-        <circle cx="66" cy="66" r={r} className="ring-fill" strokeDasharray={c} strokeDashoffset={c * (1 - frac)} />
+        <circle cx="66" cy="66" r={r} className="ring-fill" style={{ "--c": c } as React.CSSProperties} strokeDasharray={c} strokeDashoffset={c * (1 - frac)} />
       </svg>
       <div className="ring-c">
         <b className={long ? "small" : ""}>
-          {done}<span className="ring-total">/{total}</span>
+          <Num n={done} /><span className="ring-total">/{total}</span>
         </b>
         <small className="muted">dzisiejszy plan</small>
       </div>

@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./styles.css";
+import "./juice.css";
 import { applyTheme, loadTheme } from "./lib/theme";
 
 applyTheme(loadTheme());
