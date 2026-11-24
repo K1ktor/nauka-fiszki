@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, StarFilter, Store } from "../lib/db";
 import TypedAnswer from "./TypedAnswer";
 import Burst from "./Burst";
+import { sfx } from "../lib/sounds";
 
 interface Props {
   store: Store;
@@ -44,6 +45,14 @@ export default function Practice({ store, tags, shuffle, stars, onBack }: Props)
   }, [store, tags, shuffle, stars, round]);
 
   const card = queue?.[index];
+
+  useEffect(() => {
+    if (revealed) sfx("odkryj");
+  }, [revealed]);
+  const finished = !!queue && queue.length > 0 && !card;
+  useEffect(() => {
+    if (finished) sfx("koniec_sesji");
+  }, [finished]);
   const next = () => {
     setRevealed(false);
     setTyped("");

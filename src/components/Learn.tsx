@@ -7,6 +7,7 @@ import { STAR_LABELS, Stars } from "../lib/scheduler";
 import TypedAnswer from "./TypedAnswer";
 import Burst from "./Burst";
 import { settle } from "../lib/juice";
+import { sfx, sfxForStars } from "../lib/sounds";
 
 interface Props {
   store: Store;
@@ -79,6 +80,20 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
 
   const card = queue?.[0];
 
+  // Dźwięki: odkrycie odpowiedzi (nie przy „To już umiem”, gdzie busy jest już ustawione),
+  // propozycja przerwy i koniec sesji.
+  useEffect(() => {
+    if (revealed && !busy) sfx("odkryj");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealed]);
+  useEffect(() => {
+    if (showBreak) sfx("przerwa");
+  }, [showBreak]);
+  const finished = !!queue && !card && sessionLearned > 0;
+  useEffect(() => {
+    if (finished) sfx("koniec_sesji");
+  }, [finished]);
+
   const flash = (text: string) => {
     setToast(text);
     window.clearTimeout(toastTimer.current);
@@ -94,6 +109,9 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
       const res = await store.rateLearn(card, stars, today, knowIt);
       const effect: Fx = res.graduated ? "grad" : res.streak > card.learnStreak ? "gain" : res.streak < card.learnStreak ? "lose" : null;
       setFx(effect);
+      // Dźwięk razem z animacją kółek/gwiazdek, a nie po pauzie.
+      if (res.graduated) sfx("nauczona");
+      else sfxForStars(stars);
       if (res.graduated) setGrads((g) => g + 1);
       // Pokaż wypełnione kółka na tej samej fiszce, zanim przejdziemy dalej.
       setQueue((q) => (q ? [{ ...q[0], learnStreak: res.streak }, ...q.slice(1)] : q));
