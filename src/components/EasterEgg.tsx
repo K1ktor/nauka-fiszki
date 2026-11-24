@@ -47,10 +47,10 @@ function play(name: Sound, volume = 0.8) {
 /** Kandydaci na „ofiary” – od najciekawszych. */
 const TARGETS = [".dashboard .ring", ".dashboard .plan-mode", ".dashboard .m-tile", ".dashboard .forecast", ".dashboard .streak-info", ".dashboard .mini-heat", ".dashboard .mastery-bar"];
 const MAX_TARGETS = 4;
-/** Kółka: czas rysowania jednego, odstęp między kolejnymi, maksymalna średnica (px). */
+/** Kółka: czas rysowania jednego, odstęp między kolejnymi, średnica (px) – taka sama dla wszystkich. */
 const RING_MS = 520;
 const RING_STAGGER = 180;
-const RING_MAX = 240;
+const RING_D = 150;
 
 type Phase = "peek" | "hidden" | "run";
 type Pose = "idle" | "jump" | "grab" | "slam" | "flee";
@@ -300,7 +300,7 @@ export default function EasterEgg() {
       {phase === "run" && <div className="egg-blocker" />}
       {rings &&
         victims.map((v, i) => {
-          const d = Math.min(Math.max(v.rect.width, v.rect.height), RING_MAX) + 24;
+          const d = RING_D;
           return (
             <svg key={i} className="egg-ring" width={d} height={d} viewBox="0 0 100 100" style={{ left: v.cx - d / 2, top: v.cy - d / 2 }}>
               <circle className="egg-ring-track" cx="50" cy="50" r="46" />
