@@ -2,6 +2,7 @@ import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Store, TagInfo } from "../lib/db";
 import { parseTags } from "../lib/csv";
 import { cardsFromDraft, questionKey, toggleTagText } from "../lib/creator";
+import { sfx } from "../lib/sounds";
 
 interface Props {
   store: Store;
@@ -143,6 +144,7 @@ export default function Creator({ store, onChange, onDone, onBack, active }: Pro
           setFlash("Taka fiszka już istnieje");
           return;
         }
+        sfx("dodano");
         const now: Added[] = r.ids.map((id, i) => ({ id, ...cards[i], reverse: i > 0 }));
         // Gdy odwrotna była duplikatem, addCards ją pominął – ids ma wtedy tylko pierwszą.
         setAdded((list) => [...now.slice().reverse(), ...list]);

@@ -110,6 +110,7 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); ou
 .nav.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .theme-switch { margin-top: auto; display: flex; background: var(--surface-2); border-radius: 0.6667rem; padding: 0.2rem; gap: 2px; }
 .theme-switch button { flex: 1; border: none; background: none; padding: 0.4rem 0; font-size: 1rem; border-radius: 0.5333rem; }
+.theme-switch .switch-sep { width: 1px; margin: 0.3rem 0.15rem; background: var(--border, rgba(127,127,127,.3)); }
 .theme-switch button.on { background: var(--surface); box-shadow: 0 1px 0.2rem rgba(0,0,0,0.15); }
 .hint { font-size: 0.8rem; color: var(--muted); padding: 0 0.6667rem; }
 .content { flex: 1; padding: 2.1333rem 2.6667rem; max-width: 76rem; min-width: 0; margin: 0 auto; }

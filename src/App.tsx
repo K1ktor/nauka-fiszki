@@ -15,6 +15,7 @@ import Practice from "./components/Practice";
 import Updater from "./components/Updater";
 import Onboarding, { GoogleLogo } from "./components/Onboarding";
 import { applyTheme, loadTheme, Theme } from "./lib/theme";
+import { setSoundsEnabled, sfx, soundsEnabled } from "./lib/sounds";
 
 const THEMES: { id: Theme; icon: string; label: string }[] = [
   { id: "system", icon: "🖥", label: "Motyw systemowy" },
@@ -47,6 +48,12 @@ export default function App() {
   const [practice, setPractice] = useState<{ tags: string[]; shuffle: boolean; stars: StarFilter }>({ tags: [], shuffle: true, stars: NO_STAR_FILTER });
   // Licznik zmian – odświeża widoki po imporcie/ocenie.
   const [theme, setTheme] = useState<Theme>(loadTheme);
+  const [sound, setSound] = useState(soundsEnabled);
+  const toggleSound = () => {
+    setSoundsEnabled(!sound);
+    setSound(!sound);
+    if (!sound) sfx("ocena_srednia");
+  };
   const changeTheme = (t: Theme) => {
     applyTheme(t);
     setTheme(t);
@@ -128,6 +135,10 @@ export default function App() {
               {t.icon}
             </button>
           ))}
+          <span className="switch-sep" aria-hidden="true" />
+          <button className={sound ? "on" : ""} title={sound ? "Dźwięki włączone" : "Dźwięki wyłączone"} aria-label="Dźwięki" aria-pressed={sound} onClick={toggleSound}>
+            {sound ? "🔊" : "🔇"}
+          </button>
         </div>
         {!isTauri() && <div className="hint">Tryb przeglądarki: dane w localStorage</div>}
         <button className="link app-version" onClick={() => setOnboarding(true)} title="Otwórz ponownie ekran powitalny (fiszki i ustawienia zostają)">

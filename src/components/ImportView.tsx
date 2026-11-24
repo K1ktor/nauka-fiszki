@@ -3,6 +3,7 @@ import { Store } from "../lib/db";
 import { parseCsv, parseTags } from "../lib/csv";
 import { CHATGPT_URL, CLAUDE_URL, copyText, openExternal } from "../lib/external";
 import { CLAUDE_COLOR, CLAUDE_PATH, OPENAI_PATH } from "../lib/logos";
+import { sfx } from "../lib/sounds";
 
 interface Props {
   store: Store;
@@ -69,7 +70,10 @@ export default function ImportView({ store, onImported }: Props) {
     setResult(`Dodano ${r.added} fiszek${r.duplicates ? `, pominięto ${r.duplicates} duplikatów` : ""}.`);
     setText("");
     setFileName("");
-    if (r.added > 0) setTimeout(onImported, 900);
+    if (r.added > 0) {
+      sfx("dodano");
+      setTimeout(onImported, 900);
+    }
   };
 
   return (
