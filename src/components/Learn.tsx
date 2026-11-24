@@ -5,6 +5,7 @@ import { toDay } from "../lib/dates";
 import { breakAt, graduationInterval, insertRandom, LEARN_TARGET, learnStep, requeue, shuffle } from "../lib/learn";
 import { STAR_LABELS, Stars } from "../lib/scheduler";
 import TypedAnswer from "./TypedAnswer";
+import { sfx, sfxForStars } from "../lib/sounds";
 
 interface Props {
   store: Store;
@@ -68,6 +69,20 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
 
   const card = queue?.[0];
 
+  // Dźwięki: odkrycie odpowiedzi (nie przy „To już umiem”, gdzie busy jest już ustawione),
+  // propozycja przerwy i koniec sesji.
+  useEffect(() => {
+    if (revealed && !busy) sfx("odkryj");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealed]);
+  useEffect(() => {
+    if (showBreak) sfx("przerwa");
+  }, [showBreak]);
+  const finished = !!queue && !card && sessionLearned > 0;
+  useEffect(() => {
+    if (finished) sfx("koniec_sesji");
+  }, [finished]);
+
   const flash = (text: string) => {
     setToast(text);
     window.clearTimeout(toastTimer.current);
@@ -86,6 +101,8 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
       await new Promise((r) => setTimeout(r, SETTLE_MS));
 
       let next: Card[];
+      if (res.graduated) sfx("nauczona");
+      else sfxForStars(stars);
       if (res.graduated) {
         // Przesuwane okno: na miejsce nauczonej fiszki wchodzi kolejna (w losowe miejsce kolejki).
         next = queue.slice(1);

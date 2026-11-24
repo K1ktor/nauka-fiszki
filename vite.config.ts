@@ -7,5 +7,6 @@ export default defineConfig({
   clearScreen: false,
   server: { port: 1420, strictPort: true },
   envPrefix: ["VITE_", "TAURI_ENV_*"],
-  build: { target: "es2021", outDir: "dist" },
+  // Dźwięki zawsze jako osobne pliki (nie data: w JS), żeby łatwo je podmieniać i nie puchł bundle.
+  build: { target: "es2021", outDir: "dist", assetsInlineLimit: (file) => (/\.(mp3|ogg|wav)$/.test(file) ? false : undefined) },
 });
