@@ -80,12 +80,7 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
 
   const card = queue?.[0];
 
-  // Dźwięki: odkrycie odpowiedzi (nie przy „To już umiem”, gdzie busy jest już ustawione),
-  // propozycja przerwy i koniec sesji.
-  useEffect(() => {
-    if (revealed && !busy) sfx("odkryj");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [revealed]);
+  // Dźwięki: propozycja przerwy i koniec sesji (odkrycie odpowiedzi jest bez dźwięku).
   useEffect(() => {
     if (showBreak) sfx("przerwa");
   }, [showBreak]);
