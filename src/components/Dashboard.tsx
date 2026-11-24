@@ -3,6 +3,7 @@ import { Card, learnCards, reviewQueue, Store, TagInfo } from "../lib/db";
 import { streakNewTarget } from "../lib/learn";
 import { addDays, parseDay, toDay } from "../lib/dates";
 import { computeStreak, StreakInfo } from "../lib/streak";
+import EasterEgg from "./EasterEgg";
 import { computeProgress, formatEta, lastWeeks, MASTERED_DAYS, ProgressInfo, secondsPerCard } from "../lib/progress";
 
 interface Props {
@@ -127,6 +128,7 @@ export default function Dashboard({ store, version, onStart, onLearn, onImport, 
 
   return (
     <div className="dashboard">
+      <EasterEgg />
       <h1 className="dash-title">Dziś</h1>
       <p className="muted dash-date">{dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1)}</p>
 
