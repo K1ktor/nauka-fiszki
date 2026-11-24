@@ -7,9 +7,9 @@ import { createPortal } from "react-dom";
  * ciska nimi o podłogę, uderza w nie i ucieka. Wszystko wraca na miejsce –
  * animacja jest czysto wizualna (Web Animations API, bez zmian w DOM Reacta i w danych).
  *
- * Grafika postaci jest podmienialna: wrzuć własny obrazek jako
- * `src/assets/easter-egg/postac.png` (albo .webp/.gif/.svg/.jpg) i zbuduj aplikację.
- * Bez pliku rysuje się wbudowana postać SVG.
+ * Grafika i dźwięki leżą w `src/assets/easter-egg/` i są podmienialne (zachowaj nazwy):
+ * postac.png (albo .webp/.gif/.svg/.jpg; bez pliku rysuje się wbudowana postać SVG),
+ * chwyt / przyciaganie / uderzenie / ult (.mp3, .ogg albo .wav).
  */
 
 const custom = import.meta.glob("../assets/easter-egg/postac.{png,webp,gif,svg,jpg,jpeg}", {
@@ -18,6 +18,31 @@ const custom = import.meta.glob("../assets/easter-egg/postac.{png,webp,gif,svg,j
   import: "default",
 }) as Record<string, string>;
 const CUSTOM_SRC: string | undefined = Object.values(custom)[0];
+
+const soundFiles = import.meta.glob("../assets/easter-egg/{chwyt,przyciaganie,uderzenie,ult}.{mp3,ogg,wav}", {
+  eager: true,
+  query: "?url",
+  import: "default",
+}) as Record<string, string>;
+type Sound = "chwyt" | "przyciaganie" | "uderzenie" | "ult";
+const SOUNDS: Partial<Record<Sound, string>> = {};
+for (const [path, url] of Object.entries(soundFiles)) {
+  const name = path.split("/").pop()!.replace(/\.[^.]+$/, "") as Sound;
+  SOUNDS[name] ??= url;
+}
+
+/** Odtwarza dźwięk easter egga; brak pliku albo zablokowane audio po cichu ignorujemy. */
+function play(name: Sound, volume = 0.8) {
+  const url = SOUNDS[name];
+  if (!url) return;
+  try {
+    const a = new Audio(url);
+    a.volume = volume;
+    void a.play().catch(() => {});
+  } catch {
+    /* brak audio – trudno */
+  }
+}
 
 /** Kandydaci na „ofiary” – od najciekawszych. */
 const TARGETS = [".dashboard .ring", ".dashboard .plan-mode", ".dashboard .m-tile", ".dashboard .forecast", ".dashboard .streak-info", ".dashboard .mini-heat", ".dashboard .mastery-bar"];
@@ -87,6 +112,7 @@ export default function EasterEgg() {
     setVictims(picked);
     setPhase("run");
     setPose("jump");
+    play("ult");
     await wait(30);
     const hero = heroRef.current;
     if (!hero || !alive.current) return;
@@ -132,6 +158,7 @@ export default function EasterEgg() {
     // 2. Zaznaczenie zielonymi kółkami.
     setPose("grab");
     setRings(true);
+    play("chwyt");
     await wait(250 + picked.length * 160);
     setTethers(true);
     await wait(350);
@@ -149,6 +176,7 @@ export default function EasterEgg() {
         }),
       ),
     );
+    play("przyciaganie");
     const pullTo = picked.map((v, i) => {
       const spread = (i - (picked.length - 1) / 2) * Math.min(150, vw / 8);
       const tx = midX + spread - v.cx;
@@ -193,6 +221,7 @@ export default function EasterEgg() {
     });
     await Promise.all(slams.map((s) => s.finished));
     if (!alive.current) return;
+    play("uderzenie", 1);
     const app = document.querySelector<HTMLElement>(".app");
     if (app) track(app.animate(shake(14), { duration: 420 }));
     await wait(350);
@@ -208,6 +237,7 @@ export default function EasterEgg() {
       await wait(220);
       const y = picked[i].cy + floor[i].ty;
       setBooms((b) => [...b, { id: Date.now() + i, x: picked[i].cx + floor[i].tx, y }]);
+      play("uderzenie", 0.35);
       track(picked[i].el.animate(shake(10), { duration: 260, composite: "add" }));
       await wait(260);
     }
