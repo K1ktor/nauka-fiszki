@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { convertFractions, hasMath, mathAsPlain, splitMath } from "./math";
+import { alignMathLines, convertFractions, hasMath, mathAsPlain, splitMath } from "./math";
 import { compareAnswer } from "./answer";
 
 describe("splitMath", () => {
@@ -51,5 +51,19 @@ describe("convertFractions", () => {
 describe("odpowiedź wpisywana", () => {
   it("1/2 pasuje do $1/2$", () => {
     expect(compareAnswer("1/2", "$1/2$")).toBe("exact");
+  });
+});
+
+describe("alignMathLines", () => {
+  it("łączy linie obliczeń i wyrównuje =", () => {
+    expect(alignMathLines("Rozwiązanie:\n$a/b = c$\n$= d$")).toBe(
+      "Rozwiązanie:\n$$\\begin{aligned}a/b &= c\\\\[0.6em]&= d\\end{aligned}$$",
+    );
+  });
+  it("pojedynczy wzór i zwykły tekst bez zmian", () => {
+    expect(alignMathLines("Wynik: $1/2$\n$x$\ni/lub")).toBe("Wynik: $1/2$\n$x$\ni/lub");
+  });
+  it("= w nawiasach nie jest punktem wyrównania", () => {
+    expect(alignMathLines("${a=b}+c = d$\n$= e$")).toContain("{a=b}+c &= d");
   });
 });

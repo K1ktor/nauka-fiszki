@@ -212,3 +212,51 @@ export function convertFractions(tex: string): string {
 }
 
 const operand = (t: Tok) => (t.kind === "atom" && t.inner !== undefined ? t.inner : t.tex);
+
+// --- kilka linii obliczeń pod rząd → jeden blok z wyrównanymi „=” -------------
+
+/** Indeks pierwszego „=” poza nawiasami/klamrami, albo -1. */
+function topLevelEq(tex: string): number {
+  let depth = 0;
+  for (let i = 0; i < tex.length; i++) {
+    const c = tex[i];
+    if (c === "\\") {
+      i++;
+      continue;
+    }
+    if (c === "{" || c === "(" || c === "[") depth++;
+    else if (c === "}" || c === ")" || c === "]") depth--;
+    else if (c === "=" && depth === 0) return i;
+  }
+  return -1;
+}
+
+/**
+ * Linie, które w całości są jednym wzorem $…$ i stoją bezpośrednio pod sobą (min. 2),
+ * łączy w jeden blok \begin{aligned}: znaki „=” stoją jeden pod drugim, a między liniami jest odstęp.
+ */
+export function alignMathLines(text: string): string {
+  const lines = text.split("\n");
+  const out: string[] = [];
+  let group: string[] = [];
+  const flush = () => {
+    if (group.length >= 2) {
+      const rows = group.map((tex) => {
+        const eq = topLevelEq(tex);
+        return eq === -1 ? `&${tex}` : `${tex.slice(0, eq)}&${tex.slice(eq)}`;
+      });
+      out.push(`$$\\begin{aligned}${rows.join("\\\\[0.6em]")}\\end{aligned}$$`);
+    } else out.push(...group.map((t) => `$${t}$`));
+    group = [];
+  };
+  for (const line of lines) {
+    const segs = splitMath(line.trim());
+    if (segs.length === 1 && segs[0].type === "math" && !segs[0].display) group.push(segs[0].value);
+    else {
+      flush();
+      out.push(line);
+    }
+  }
+  flush();
+  return out.join("\n");
+}
