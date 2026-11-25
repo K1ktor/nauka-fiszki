@@ -1,13 +1,13 @@
 import { useMemo } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import { alignMathLines, convertFractions, splitMath } from "../lib/math";
+import { convertFractions, splitMath } from "../lib/math";
 
 /** Tekst fiszki: zwykły tekst + wzory $…$ / $$…$$ (KaTeX, działa offline). */
 export default function RichText({ text }: { text: string }) {
   const parts = useMemo(
     () =>
-      splitMath(alignMathLines(text)).map((s) =>
+      splitMath(text).map((s) =>
         s.type === "text"
           ? s
           : {
