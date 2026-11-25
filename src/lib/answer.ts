@@ -1,7 +1,9 @@
+import { mathAsPlain } from "./math";
+
 export type AnswerVerdict = "exact" | "close" | "wrong" | "empty";
 
 const norm = (s: string) =>
-  s
+  mathAsPlain(s)
     .toLowerCase()
     .replace(/\s+/g, " ")
     .replace(/[\s.,;:!?"'„”«»()-]+$/g, "")

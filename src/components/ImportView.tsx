@@ -4,6 +4,7 @@ import { parseCsv, parseTags } from "../lib/csv";
 import { CHATGPT_URL, CLAUDE_URL, copyText, openExternal } from "../lib/external";
 import { CLAUDE_COLOR, CLAUDE_PATH, OPENAI_PATH } from "../lib/logos";
 import { sfx } from "../lib/sounds";
+import RichText from "./RichText";
 
 interface Props {
   store: Store;
@@ -18,6 +19,7 @@ Zasady:
 - kilka tagów oddziel znakiem |, np. "biologia|komórka"
 - jedno pytanie sprawdza jedną rzecz, odpowiedź jest krótka i konkretna
 - pisz w języku materiałów
+- wzory i działania matematyczne zapisuj w LaTeX między znakami dolara, np. "$1/2 + 1/3 = 5/6$", "$x^2$", "$\\sqrt{2}$"; ułamek pisz jako a/b, np. "$(a+b)/c$"; zwykły tekst zostaw bez dolarów
 Materiały:
 `;
 
@@ -136,7 +138,7 @@ export default function ImportView({ store, onImported }: Props) {
             <thead><tr><th>Pytanie</th><th>Odpowiedź</th><th>Tagi</th></tr></thead>
             <tbody>
               {parsed.cards.slice(0, 20).map((c, i) => (
-                <tr key={i}><td>{c.question}</td><td>{c.answer}</td><td>{[...c.tags, ...parseTags(extraTags)].map((t) => "#" + t).join(" ")}</td></tr>
+                <tr key={i}><td><RichText text={c.question} /></td><td><RichText text={c.answer} /></td><td>{[...c.tags, ...parseTags(extraTags)].map((t) => "#" + t).join(" ")}</td></tr>
               ))}
             </tbody>
           </table>

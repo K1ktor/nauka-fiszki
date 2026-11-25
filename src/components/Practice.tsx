@@ -3,6 +3,7 @@ import { Card, StarFilter, Store } from "../lib/db";
 import TypedAnswer from "./TypedAnswer";
 import Burst from "./Burst";
 import { sfx } from "../lib/sounds";
+import RichText from "./RichText";
 
 interface Props {
   store: Store;
@@ -113,7 +114,7 @@ export default function Practice({ store, tags, shuffle, stars, onBack }: Props)
 
       <div key={`${round}-${index}`} className={`flashcard${revealed ? " revealed" : ""}${back ? " from-left" : ""}`}>
         <div className="side-label">Pytanie</div>
-        <div className="q">{card.question}</div>
+        <div className="q"><RichText text={card.question} /></div>
         {typeAnswer && !revealed && (
           <input
             key={card.id}
@@ -135,7 +136,7 @@ export default function Practice({ store, tags, shuffle, stars, onBack }: Props)
             <hr />
             {typeAnswer && <TypedAnswer typed={typed} answer={card.answer} />}
             <div className="side-label">Odpowiedź</div>
-            <div className="a">{card.answer}</div>
+            <div className="a"><RichText text={card.answer} /></div>
           </>
         )}
       </div>
