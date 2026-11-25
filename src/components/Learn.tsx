@@ -8,6 +8,7 @@ import TypedAnswer from "./TypedAnswer";
 import Burst from "./Burst";
 import { settle } from "../lib/juice";
 import { sfx, sfxForStars } from "../lib/sounds";
+import RichText from "./RichText";
 
 interface Props {
   store: Store;
@@ -210,7 +211,7 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
           ))}
         </div>
         <div className="side-label">Pytanie</div>
-        <div className="q">{card.question}</div>
+        <div className="q"><RichText text={card.question} /></div>
         {settings.typeAnswer && !revealed && (
           <input
             key={card.id}
@@ -232,7 +233,7 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
             <hr />
             {settings.typeAnswer && <TypedAnswer typed={typed} answer={card.answer} />}
             <div className="side-label">Odpowiedź</div>
-            <div className="a">{card.answer}</div>
+            <div className="a"><RichText text={card.answer} /></div>
           </>
         )}
       </div>

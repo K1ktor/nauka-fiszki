@@ -538,3 +538,12 @@ button.link.app-version:hover { color: var(--accent); }
   .egg-peek, .egg-peek .egg-svg, .egg-peek .egg-img, .egg-ring-fill, .egg-tethers line, .egg-svg *, .egg-img { animation: none !important; transition: none !important; }
   .egg-ring-fill { stroke-dashoffset: 0; }
 }
+
+/* Wzory (KaTeX) */
+.math { white-space: normal; }
+.math .katex { font-size: 1.12em; }
+.math-display { display: block; overflow-x: auto; overflow-y: hidden; }
+.math-display .katex-display { margin: 0.4em 0; text-align: left; }
+.math-display .katex-display > .katex { text-align: left; }
+.creator-preview { margin-top: 0.5333rem; padding: 0.6667rem 0.9333rem; border: 1px dashed var(--border); border-radius: 0.6667rem; white-space: pre-wrap; }
+.math-hint { margin: 0.4rem 0 0; } .math-hint code { font-size: 0.9em; background: var(--surface-2); padding: 1px 0.3rem; border-radius: 0.3rem; }

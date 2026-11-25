@@ -3,6 +3,8 @@ import { Store, TagInfo } from "../lib/db";
 import { parseTags } from "../lib/csv";
 import { cardsFromDraft, questionKey, toggleTagText } from "../lib/creator";
 import { sfx } from "../lib/sounds";
+import RichText from "./RichText";
+import { hasMath } from "../lib/math";
 
 interface Props {
   store: Store;
@@ -224,12 +226,17 @@ export default function Creator({ store, onChange, onDone, onBack, active }: Pro
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="np. Stolica Australii?"
             />
+            {hasMath(question) && <div className="creator-preview"><RichText text={question} /></div>}
           </label>
           <label className="creator-side">
             <span className="side-label">Tył · odpowiedź</span>
             <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="np. Canberra" />
+            {hasMath(answer) && <div className="creator-preview"><RichText text={answer} /></div>}
           </label>
         </div>
+        <p className="muted small math-hint">
+          Wzory wpisuj między znakami dolara: <code>$1/2$</code> to ułamek ½, <code>$(a+b)/c$</code>, <code>$x^2$</code>, <code>$\sqrt{'{'}2{'}'}$</code>.
+        </p>
         {duplicate && <p className="warn">Fiszka z takim pytaniem już istnieje – zmień pytanie, żeby ją dodać.</p>}
 
         <div className="creator-tags">
@@ -283,8 +290,8 @@ export default function Creator({ store, onChange, onDone, onBack, active }: Pro
             {added.map((a) => (
               <div key={a.id} className={editing?.id === a.id ? "row selected" : "row"}>
                 <div className="row-main">
-                  <div className="row-q">{a.question}</div>
-                  <div className="row-a muted">{a.answer}</div>
+                  <div className="row-q"><RichText text={a.question} /></div>
+                  <div className="row-a muted"><RichText text={a.answer} /></div>
                   {(a.tags.length > 0 || a.reverse) && (
                     <div className="row-tags">
                       {a.reverse && <span className="chip small">⇄ odwrotna</span>}

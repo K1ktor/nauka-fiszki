@@ -6,6 +6,7 @@ import TypedAnswer from "./TypedAnswer";
 import { sfx, sfxForStars } from "../lib/sounds";
 import Burst from "./Burst";
 import { settle } from "../lib/juice";
+import RichText from "./RichText";
 
 /** Krótka chwila na „wyrzucenie” ocenionej fiszki, zanim wjedzie następna. */
 const LEAVE_MS = 260;
@@ -133,7 +134,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
 
       <div key={index} className={`flashcard${revealed ? " revealed" : ""}${leaving ? (leaving <= 2 ? " leave-down" : " leave-right") : ""}`}>
         <div className="side-label">Pytanie</div>
-        <div className="q">{card.question}</div>
+        <div className="q"><RichText text={card.question} /></div>
         {settings.typeAnswer && !revealed && (
           <input
             key={card.id}
@@ -155,7 +156,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
             <hr />
             {settings.typeAnswer && <TypedAnswer typed={typed} answer={card.answer} />}
             <div className="side-label">Odpowiedź</div>
-            <div className="a">{card.answer}</div>
+            <div className="a"><RichText text={card.answer} /></div>
           </>
         )}
       </div>

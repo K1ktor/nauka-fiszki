@@ -3,6 +3,8 @@ import { Card, Store, TagInfo } from "../lib/db";
 import { diffDays, formatInterval, toDay } from "../lib/dates";
 import { parseTags, toCsv } from "../lib/csv";
 import { saveTextFile } from "../lib/exportFile";
+import RichText from "./RichText";
+import { hasMath } from "../lib/math";
 
 interface Props {
   store: Store;
@@ -184,8 +186,8 @@ export default function CardList({ store, version, onChange }: Props) {
             <div key={c.id} className={`row ${selected.has(c.id) ? "selected" : ""} ${c.suspended ? "is-suspended" : ""}`}>
               <input type="checkbox" className="row-check" checked={selected.has(c.id)} onChange={() => toggle(c.id)} aria-label="Zaznacz fiszkę" />
               <div className="row-main">
-                <div className="row-q">{c.question}</div>
-                <div className="row-a muted">{c.answer}</div>
+                <div className="row-q"><RichText text={c.question} /></div>
+                <div className="row-a muted"><RichText text={c.answer} /></div>
                 <div className="row-tags">
                   {c.tags.map((t) => (
                     <button key={t} className="chip small" onClick={() => setTag(t)}>#{t}</button>
@@ -220,6 +222,12 @@ export default function CardList({ store, version, onChange }: Props) {
             <h2>{draft.id === null ? "Nowa fiszka" : "Edytuj fiszkę"}</h2>
             <label>Pytanie<textarea autoFocus value={draft.question} onChange={(e) => setDraft({ ...draft, question: e.target.value })} /></label>
             <label>Odpowiedź<textarea value={draft.answer} onChange={(e) => setDraft({ ...draft, answer: e.target.value })} /></label>
+            {(hasMath(draft.question) || hasMath(draft.answer)) && (
+              <div className="creator-preview">
+                <div className="row-q"><RichText text={draft.question} /></div>
+                <div className="row-a muted"><RichText text={draft.answer} /></div>
+              </div>
+            )}
             <label>Tagi (oddzielone przecinkami)<input value={draft.tags} onChange={(e) => setDraft({ ...draft, tags: e.target.value })} placeholder="np. biologia, komórka" /></label>
             <div className="modal-actions">
               <button onClick={() => setDraft(null)}>Anuluj</button>
