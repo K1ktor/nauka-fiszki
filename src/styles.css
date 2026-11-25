@@ -540,7 +540,7 @@ button.link.app-version:hover { color: var(--accent); }
 }
 
 /* Wzory (KaTeX) */
-.math { white-space: normal; }
+.math { white-space: normal; display: inline-block; vertical-align: middle; max-width: 100%; padding: 0.3em 0; }
 .math .katex { font-size: 1.12em; }
 .math-display { display: block; overflow-x: auto; overflow-y: hidden; }
 .math-display .katex-display { margin: 0.4em 0; text-align: left; }
