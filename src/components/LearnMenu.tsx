@@ -72,7 +72,7 @@ export default function LearnMenu({ store, version, onLearn, onReview, onFree }:
           <span className="mode-icon">↺</span>
           <span className="mode-title">Powtórka</span>
           <span className="mode-desc">
-            Fiszki, które już umiesz, z terminem na dziś wg FSRS. Ocena 1–2★ odsyła fiszkę z powrotem do Nauki.
+            Fiszki, które już umiesz, z terminem na dziś wg FSRS. Ocena 1★ odsyła fiszkę z powrotem do Nauki.
           </span>
           <span className="mode-count">{counts.reviews > 0 ? `${counts.reviews} do zrobienia` : "Na dziś wszystko powtórzone 🎉"}</span>
         </button>

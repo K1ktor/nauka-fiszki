@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Card, DEFAULT_SETTINGS, Settings, Store } from "../lib/db";
 import { formatInterval, toDay } from "../lib/dates";
+import { backToLearn as sendsBackToLearn } from "../lib/learn";
 import { previewIntervals, STAR_LABELS, Stars } from "../lib/scheduler";
 import TypedAnswer from "./TypedAnswer";
 import { sfx, sfxForStars } from "../lib/sounds";
@@ -28,7 +29,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
   const [busy, setBusy] = useState(false);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [typed, setTyped] = useState("");
-  // Animacja: oceniona fiszka wylatuje (w prawo przy 3–5★, w dół przy 1–2★ – wraca do Nauki).
+  // Animacja: oceniona fiszka wylatuje (w prawo przy 2–5★, w dół przy 1★ – wraca do Nauki).
   const [leaving, setLeaving] = useState<Stars | null>(null);
   const today = toDay();
 
@@ -104,7 +105,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
         <h1>Powtórka zakończona! 🔥</h1>
         <p>Powtórzone fiszki: <b>{ratings.length}</b> · średnia ocena: <b>{avg.toFixed(1)} ★</b></p>
         {backToLearn > 0 && (
-          <p className="muted">{backToLearn} {backToLearn === 1 ? "fiszka wróciła" : "fiszek wróciło"} do Nauki (ocena 1–2★).</p>
+          <p className="muted">{backToLearn} {backToLearn === 1 ? "fiszka wróciła" : "fiszek wróciło"} do Nauki (ocena 1★).</p>
         )}
         <div className="dist">
           {([5, 4, 3, 2, 1] as Stars[]).map((s) => (
@@ -132,7 +133,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
         <span>{card.lastReviewed ? `ostatnio: ${card.lastReviewed}` : ""}</span>
       </div>
 
-      <div key={index} className={`flashcard${revealed ? " revealed" : ""}${leaving ? (leaving <= 2 ? " leave-down" : " leave-right") : ""}`}>
+      <div key={index} className={`flashcard${revealed ? " revealed" : ""}${leaving ? (sendsBackToLearn(leaving) ? " leave-down" : " leave-right") : ""}`}>
         <div className="side-label">Pytanie</div>
         <div className="q"><RichText text={card.question} /></div>
         {settings.typeAnswer && !revealed && (
@@ -187,7 +188,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
           <div className="rating-hint">
             {hover ? (
               <>
-                <b>{STAR_LABELS[hover]}</b> · {hover <= 2 ? <>wraca do <b>Nauki</b></> : <>następna powtórka <b>{formatInterval(preview[hover])}</b></>}
+                <b>{STAR_LABELS[hover]}</b> · {sendsBackToLearn(hover) ? <>wraca do <b>Nauki</b></> : <>następna powtórka <b>{formatInterval(preview[hover])}</b></>}
               </>
             ) : (
               <span className="muted">Kliknij gwiazdkę lub naciśnij 1–5</span>
@@ -195,7 +196,7 @@ export default function Study({ store, tags, onChange, onDone }: Props) {
           </div>
           <div className="rating-legend muted">
             {([1, 2, 3, 4, 5] as Stars[]).map((s) => (
-              <span key={s}>{s}★ {s <= 2 ? "do Nauki" : formatInterval(preview[s])}</span>
+              <span key={s}>{s}★ {sendsBackToLearn(s) ? "do Nauki" : formatInterval(preview[s])}</span>
             ))}
           </div>
         </div>

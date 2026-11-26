@@ -2,7 +2,7 @@ import { addDays, DayString, diffDays, toDay } from "./dates";
 import { ParsedCard, normalizeTag } from "./csv";
 import type { ReviewRow } from "./progress";
 import { clampRetention, DEFAULT_RETENTION, replay, SchedulingState, Stars, initialState, review } from "./scheduler";
-import { clampPoolSize, DEFAULT_POOL_SIZE, dayCompleted, graduationInterval, learnStep, shuffle, Stage, streakNewTarget } from "./learn";
+import { clampPoolSize, DEFAULT_POOL_SIZE, backToLearn as sendsBackToLearn, dayCompleted, GRADUATION_INTERVAL, learnStep, shuffle, Stage, streakNewTarget } from "./learn";
 
 /** Minimalny interfejs bazy SQL – realizowany przez Tauri (SQLite na dysku) lub sql.js (przeglądarka/testy). */
 export interface SqlDriver {
@@ -434,13 +434,13 @@ export class Store {
   }
 
   /**
-   * Ocena w Powtórce: FSRS wyznacza kolejny dzień (3★ = krótszy odstęp). Przy 1–2★ fiszka wraca do Nauki
+   * Ocena w Powtórce: FSRS wyznacza kolejny dzień (2★ = jutro, 3★ = krótszy odstęp). Przy 1★ fiszka wraca do Nauki
    * z wyzerowaną serią (od razu do aktywnej puli).
    */
   async rateReview(card: Card, stars: Stars, today = toDay()): Promise<SchedulingState & { backToLearn: boolean }> {
     const { retention } = await this.getSettings();
     const next = review(card, stars, today, retention);
-    const backToLearn = stars <= 2;
+    const backToLearn = sendsBackToLearn(stars);
     await this.db.execute(
       `UPDATE cards SET repetitions = $1, interval = $2, stability = $3, difficulty = $4, lapses = $5,
                         due_date = $6, last_reviewed = $7, stage = $8, learn_streak = 0, in_pool = $9 WHERE id = $10`,
@@ -453,14 +453,14 @@ export class Store {
 
   /**
    * Ocena w Nauce: aktualizuje serię kółek i stan FSRS. Po 3 ocenach ≥4★ z rzędu (albo `knowIt`)
-   * fiszka przechodzi do Powtórki – pierwsza powtórka jutro (4★) albo za 3 dni (5★ / „To już umiem”).
+   * fiszka przechodzi do Powtórki – pierwsza powtórka zawsze następnego dnia.
    */
   async rateLearn(card: Card, stars: Stars, today = toDay(), knowIt = false): Promise<{ streak: number; graduated: boolean }> {
     const { retention } = await this.getSettings();
     const next = review(card, stars, today, retention);
     const step = knowIt ? { streak: 3, graduated: true } : learnStep(card.learnStreak, stars);
     if (step.graduated) {
-      const iv = graduationInterval(stars);
+      const iv = GRADUATION_INTERVAL;
       await this.db.execute(
         `UPDATE cards SET repetitions = $1, interval = $2, stability = $3, difficulty = $4, lapses = $5,
                           due_date = $6, last_reviewed = $7, stage = 'review', learn_streak = 0, in_pool = 0,

@@ -5,7 +5,7 @@ import { initialState, nextInterval, replay, retrievability, review, SchedulingS
 import { computeStreak } from "./streak";
 import { computeProgress, formatEta, lastWeeks, secondsPerCard } from "./progress";
 import { poolAdditions, Store } from "./db";
-import { breakAt, dayCompleted, graduationInterval, insertRandom, learnStep, requeue, streakNewTarget } from "./learn";
+import { backToLearn, breakAt, dayCompleted, GRADUATION_INTERVAL, insertRandom, learnStep, requeue, streakNewTarget } from "./learn";
 import { sqlJsDriver } from "./drivers";
 
 const T = "2026-11-17";
@@ -127,9 +127,9 @@ describe("baza danych", () => {
     expect(await store.rateLearn(q1, 5, T, true)).toEqual({ streak: 3, graduated: true });
     const after = (await store.listCards()).find((c) => c.id === q1.id)!;
     expect(after.stage).toBe("review");
-    expect(after.dueDate).toBe(addDays(T, 3));
-    expect(await store.dueReviews(addDays(T, 3), ["matma"])).toHaveLength(1);
-    expect((await store.listTags(addDays(T, 3))).find((t) => t.name === "matma")?.due).toBe(1);
+    expect(after.dueDate).toBe(addDays(T, 1));
+    expect(await store.dueReviews(addDays(T, 1), ["matma"])).toHaveLength(1);
+    expect((await store.listTags(addDays(T, 1))).find((t) => t.name === "matma")?.due).toBe(1);
 
     await store.updateCard(q1.id, "Q1!", "A1!", ["fizyka"]);
     expect((await store.listTags(T)).map((t) => t.name)).toEqual(["fizyka", "kurs"]);
@@ -371,8 +371,10 @@ describe("tryb Nauka", () => {
     expect(learnStep(2, 2)).toEqual({ streak: 0, graduated: false });
     expect(learnStep(1, 1)).toEqual({ streak: 0, graduated: false });
     expect(learnStep(2, 4)).toEqual({ streak: 3, graduated: true });
-    expect(graduationInterval(4)).toBe(1);
-    expect(graduationInterval(5)).toBe(3);
+    expect(GRADUATION_INTERVAL).toBe(1);
+    expect(backToLearn(1)).toBe(true);
+    expect(backToLearn(2)).toBe(false);
+    expect(backToLearn(3)).toBe(false);
   });
 
   it("im wyższa ocena, tym później fiszka wraca w sesji", () => {
@@ -426,7 +428,7 @@ describe("tryb Nauka", () => {
     expect(c.stage).toBe("learn");
     expect(await store.rateLearn(c, 5, T)).toEqual({ streak: 3, graduated: true });
     c = (await store.listCards()).find((k) => k.id === first.id)!;
-    expect(c).toMatchObject({ stage: "review", inPool: false, dueDate: addDays(T, 3), learnStreak: 0 });
+    expect(c).toMatchObject({ stage: "review", inPool: false, dueDate: addDays(T, 1), learnStreak: 0 });
     const a2 = await store.learnPool(["a"]);
     expect(a2).toHaveLength(5);
     expect(a2.map((k) => k.id)).not.toContain(first.id);
@@ -438,25 +440,42 @@ describe("tryb Nauka", () => {
     expect(poolAdditions(all, ["a"], 50)).toHaveLength(4); // 10 w tagu − 1 nauczona − 5 w puli
   });
 
-  it("Powtórka: 3★ zostaje z krótszym odstępem, 1–2★ wraca do Nauki z pustymi kółkami", async () => {
+  it("Powtórka: 2★ zostaje z odstępem 1 dnia, 3★ krótszy niż 5★, tylko 1★ wraca do Nauki", async () => {
     const store = new Store(await sqlJsDriver());
     await store.init();
-    await store.addCards(parseCsv("A,1\nB,2\nC,3\n").cards, [], T);
+    await store.addCards(parseCsv("A,1\nB,2\nC,3\nD,4\n").cards, [], T);
     for (const k of await store.listCards()) await store.rateLearn(k, 4, T, true);
-    const day = addDays(T, 3);
+    const day = addDays(T, 1);
     const due = await store.dueReviews(day);
-    expect(due).toHaveLength(3);
-    const [x, y, z] = due;
+    expect(due).toHaveLength(4);
+    const [w, x, y, z] = due;
+    const barely = await store.rateReview(w, 2, day);
     const hard = await store.rateReview(x, 3, day);
     const good = await store.rateReview(y, 5, day);
+    expect(barely.backToLearn).toBe(false);
+    expect(barely.interval).toBe(1);
+    expect(barely.dueDate).toBe(addDays(day, 1));
+    expect(barely.interval).toBeLessThanOrEqual(hard.interval);
     expect(hard.backToLearn).toBe(false);
     expect(hard.interval).toBeLessThan(good.interval);
-    const lapse = await store.rateReview({ ...z, learnStreak: 2 }, 2, day);
+    const lapse = await store.rateReview({ ...z, learnStreak: 2 }, 1, day);
     expect(lapse.backToLearn).toBe(true);
     const byId = Object.fromEntries((await store.listCards()).map((k) => [k.id, k]));
+    expect(byId[w.id].stage).toBe("review");
     expect(byId[x.id].stage).toBe("review");
     expect(byId[z.id]).toMatchObject({ stage: "learn", learnStreak: 0, inPool: true });
     expect(await store.dueReviews(day)).toHaveLength(0);
+  });
+
+  it("przejście do Powtórki: pierwsza powtórka zawsze jutro (4★, 5★ i „To już umiem”)", async () => {
+    const store = new Store(await sqlJsDriver());
+    await store.init();
+    await store.addCards(parseCsv("A,1\nB,2\nC,3\n").cards, [], T);
+    const [a, b, c] = await store.listCards();
+    await store.rateLearn({ ...a, learnStreak: 2 }, 4, T);
+    await store.rateLearn({ ...b, learnStreak: 2 }, 5, T);
+    await store.rateLearn(c, 5, T, true);
+    for (const k of await store.listCards()) expect(k).toMatchObject({ stage: "review", dueDate: addDays(T, 1), interval: 1 });
   });
 
   it("seria: wszystkie powtórki na dziś albo X nowych", async () => {
@@ -472,8 +491,8 @@ describe("tryb Nauka", () => {
     expect(await store.markStreakDay(T)).toBe(true); // 3 = min(10, limit 3)
     expect(await store.studyDays()).toEqual([T]);
 
-    // Następnego dnia: powtórki (3 dni później) – wszystkie zrobione = dzień zaliczony.
-    const day = addDays(T, 3);
+    // Następnego dnia: powtórki (jutro) – wszystkie zrobione = dzień zaliczony.
+    const day = addDays(T, 1);
     const due = await store.dueReviews(day);
     expect(due).toHaveLength(3);
     await store.rateReview(due[0], 4, day);
