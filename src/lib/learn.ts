@@ -23,9 +23,12 @@ export function learnStep(streak: number, stars: Stars): { streak: number; gradu
   return s >= LEARN_TARGET ? { streak: LEARN_TARGET, graduated: true } : { streak: s, graduated: false };
 }
 
-/** Pierwsza powtórka po wyjściu z Nauki: ostatnia ocena 4★ → jutro, 5★ (lub „To już umiem”) → za 3 dni. */
-export function graduationInterval(lastStars: Stars): number {
-  return lastStars >= 5 ? 3 : 1;
+/** Pierwsza powtórka po wyjściu z Nauki (także „To już umiem”) jest zawsze następnego dnia. */
+export const GRADUATION_INTERVAL = 1;
+
+/** Ocena w Powtórce, przy której fiszka wraca do Nauki (tylko 1★; 2★ zostaje i idzie przez FSRS). */
+export function backToLearn(stars: Stars): boolean {
+  return stars <= 1;
 }
 
 /** Po ilu kolejnych kartach w sesji fiszka wraca: im wyższa ocena, tym później. */

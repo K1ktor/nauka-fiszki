@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Card, DEFAULT_SETTINGS, Settings, Store } from "../lib/db";
 import { toDay } from "../lib/dates";
-import { breakAt, graduationInterval, insertRandom, LEARN_TARGET, learnStep, requeue, shuffle } from "../lib/learn";
+import { breakAt, insertRandom, LEARN_TARGET, learnStep, requeue, shuffle } from "../lib/learn";
 import { STAR_LABELS, Stars } from "../lib/scheduler";
 import TypedAnswer from "./TypedAnswer";
 import Burst from "./Burst";
@@ -36,8 +36,7 @@ function fiszek(n: number): string {
 function hint(card: Card, stars: Stars): string {
   const step = learnStep(card.learnStreak, stars);
   if (step.graduated) {
-    const iv = graduationInterval(stars);
-    return `przechodzi do Powtórki · pierwsza powtórka ${iv === 1 ? "jutro" : `za ${iv} dni`}`;
+    return "przechodzi do Powtórki · pierwsza powtórka jutro";
   }
   if (stars <= 2) return card.learnStreak > 0 ? "kółka od nowa · wraca za chwilę" : "wraca za chwilę";
   if (stars === 3) return "kółka bez zmian · wraca trochę później";
@@ -124,8 +123,7 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
         const n = learned + 1;
         setLearned(n);
         setSessionLearned((x) => x + 1);
-        const iv = graduationInterval(knowIt ? 5 : stars);
-        flash(`✓ Nauczona! Pierwsza powtórka ${iv === 1 ? "jutro" : `za ${iv} dni`}.`);
+        flash("✓ Nauczona! Pierwsza powtórka jutro.");
         await store.markStreakDay(today);
         if (threshold !== null && n >= threshold && next.length > 0) setShowBreak(true);
       } else {
@@ -276,7 +274,7 @@ export default function Learn({ store, tags, onChange, onDone, onBack }: Props) 
         <button className="link" onClick={() => rate(5, true)} disabled={busy}>
           ✓ To już umiem
         </button>
-        <span className="muted small">od razu do Powtórki (pierwsza za 3 dni)</span>
+        <span className="muted small">od razu do Powtórki (pierwsza jutro)</span>
       </div>
 
       {/* Portal: rodzic ekranu ma animację (transform), która psułaby position: fixed. */}
